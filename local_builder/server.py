@@ -545,7 +545,11 @@ class BuildManager:
             flags.append(f"-D UI_LANGUAGE={request.language}")
 
         if request.template_json:
-            escaped_template = request.template_json.replace("\\", "\\\\").replace('"', '\\"')
+            try:
+                compact_template = json.dumps(json.loads(request.template_json), separators=(",", ":"))
+            except json.JSONDecodeError:
+                compact_template = " ".join(request.template_json.split())
+            escaped_template = compact_template.replace("\\", "\\\\").replace('"', '\\"')
             flags.append("-D TEMPLATE_BOARD_JSON")
             flags.append(f'-D TEMPLATE_JSON="\\"{escaped_template}\\""')
 
