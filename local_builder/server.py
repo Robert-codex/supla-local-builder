@@ -36,6 +36,14 @@ LOCAL_TEMPLATE_BOARDS = [
     {
         "NAME": "Sonoff 4CHPROR3 Switch Module (M0802010004)",
         "GPIO": [17, 255, 255, 255, 23, 22, 18, 19, 21, 56, 20, 24, 0],
+        "FLAG": 0,
+        "BASE": 23,
+    },
+    {
+        "NAME": "Sonoff 4CHPROR3",
+        "GPIO": [17, 255, 255, 255, 23, 22, 18, 19, 21, 56, 20, 24, 0],
+        "FLAG": 0,
+        "BASE": 23,
     }
 ]
 
