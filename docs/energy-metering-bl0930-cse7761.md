@@ -7,10 +7,12 @@ This project previously treated `BL0930` and `CSE7761` as aliases of the existin
 - The `BL0930` documentation describes a single-phase metering IC with pulse outputs `CF`, `F1`, `F2` and a reverse-power indicator `REVP`.
 - The public material available for `BL0930` describes a pulse-output metering path rather than a UART register protocol compatible with `CSE7766`.
 
-Implication for this project:
+Implemented scope in this project:
 
-- `BL0930` is not compatible with the current `CSE7766` UART driver.
-- Proper support requires a dedicated pulse-based driver and a GPIO model based on pulse inputs instead of `FUNCTION_CSE7766_RX`.
+- `BL0930` now uses a dedicated pulse-based driver wired to `CF`.
+- The current implementation derives active power and forward active energy from `CF` pulses.
+- Voltage, current, apparent power, reactive power and power factor are not exposed because the public documentation used for this implementation does not describe a direct mapping from the available pulse outputs to those quantities in the current GUI-Generic data model.
+- The pulse constant is configurable from the GUI as `Imp/kWh`.
 
 ## CSE7761
 
@@ -18,14 +20,16 @@ Implication for this project:
 - The user manual describes a register communication interface over `SPI` or `UART`.
 - The same manual exposes features that do not map to the current `CSE7766` implementation, including dual current channels and additional measurement/control functions.
 
-Implication for this project:
+Implemented scope in this project:
 
-- `CSE7761` is not protocol-compatible with `CSE7766`.
-- Proper support requires a dedicated driver that implements the documented UART/SPI register protocol and a data model for two current channels.
+- `CSE7761` now uses a dedicated UART register driver instead of the `CSE7766` path.
+- The current implementation exposes one selected current channel at a time (`IA` or `IB`) together with the shared voltage channel.
+- Energy is integrated in software from active power readings and persisted through storage.
+- The second current channel is available in the device configuration, but not exported as a second SUPLA energy-meter channel yet.
 
 ## Consequence in code
 
-The firmware now blocks `SUPLA_BL0930` and `SUPLA_CSE7761` at compile time with explicit messages instead of pretending compatibility with `CSE7766`.
+The firmware no longer blocks `SUPLA_BL0930` and `SUPLA_CSE7761` at compile time. Instead it uses dedicated implementations aligned with the communication model described by each datasheet.
 
 ## Sources
 
