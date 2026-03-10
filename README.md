@@ -1,4 +1,4 @@
-# supla
+# supla-local-builder
 
 Initial repository setup.
 

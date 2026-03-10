@@ -1,5 +1,5 @@
 [Unit]
-Description=Local SUPLA GUI Generic Builder
+Description=supla-local-builder
 After=network.target
 
 [Service]

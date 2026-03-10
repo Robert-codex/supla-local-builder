@@ -714,7 +714,7 @@ class BuilderApplication:
     def run(self) -> None:
         httpd = ThreadingHTTPServer((self.host, self.port), BuilderHTTPHandler)
         httpd.app = self  # type: ignore[attr-defined]
-        print(f"Local GUI Generic Builder listening on {self.public_url}")
+        print(f"supla-local-builder listening on {self.public_url}")
         httpd.serve_forever()
 
 
