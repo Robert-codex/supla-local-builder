@@ -94,8 +94,21 @@ def normalize_public_url(value: str) -> str:
     return value.rstrip("/") + "/"
 
 
-def make_device_basename(custom_name: str, template_name: str, fallback: str) -> str:
-    raw = (custom_name or template_name or fallback).strip()
+def template_name_from_json(template_json: str) -> str:
+    raw = template_json.strip()
+    if not raw:
+        return ""
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return ""
+    name = payload.get("NAME")
+    return str(name).strip() if isinstance(name, str) else ""
+
+
+def make_device_basename(custom_name: str, template_name: str, template_json: str, fallback: str) -> str:
+    json_template_name = template_name_from_json(template_json)
+    raw = (custom_name or json_template_name or template_name or fallback).strip()
     tokens = re.findall(r"[A-Za-z0-9]+", raw)
     if not tokens:
         return fallback
@@ -529,7 +542,7 @@ class BuildManager:
 
         artifact_dir = self._artifacts_dir(request.hash)
         artifact_dir.mkdir(parents=True, exist_ok=True)
-        base_name = make_device_basename(request.custom_name, request.template_name, request.hash)
+        base_name = make_device_basename(request.custom_name, request.template_name, request.template_json, request.hash)
 
         updated = dict(artifact_files)
         for kind, source in available_artifacts.items():
@@ -664,7 +677,7 @@ class BuildManager:
             artifact_dir = self._artifacts_dir(request.hash)
             artifact_dir.mkdir(parents=True, exist_ok=True)
             copied_files: dict[str, str] = {}
-            base_name = make_device_basename(request.custom_name, request.template_name, request.hash)
+            base_name = make_device_basename(request.custom_name, request.template_name, request.template_json, request.hash)
             for kind, source in artifacts.items():
                 target = artifact_dir / artifact_filename(base_name, kind, source)
                 shutil.copy2(source, target)
