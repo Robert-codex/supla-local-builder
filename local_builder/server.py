@@ -32,6 +32,13 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 BUILDS_DIR = DATA_DIR / "builds"
 WORK_DIR = DATA_DIR / "work"
 
+LOCAL_TEMPLATE_BOARDS = [
+    {
+        "NAME": "Sonoff 4CHPROR3 Switch Module (M0802010004)",
+        "GPIO": [17, 255, 255, 255, 23, 22, 18, 19, 21, 56, 20, 24, 0],
+    }
+]
+
 
 def ensure_dirs() -> None:
     for path in (DATA_DIR, BUILDS_DIR, WORK_DIR):
@@ -332,11 +339,26 @@ class BuilderCatalog:
     def __init__(self, gui_generic_dir: Path) -> None:
         self.gui_generic_dir = gui_generic_dir
         self.builder_data = load_json(gui_generic_dir / "builder.json")
-        self.template_boards = load_json(gui_generic_dir / "template_boards.json")
+        upstream_template_boards = load_json(gui_generic_dir / "template_boards.json")
+        self.template_boards = self._merge_template_boards(upstream_template_boards, LOCAL_TEMPLATE_BOARDS)
         self.section_labels = self.builder_data.get("SECTIONS", {})
         self.section_keys = [key for key in self.builder_data.keys() if key not in ("version", "Opis struktury", "SECTIONS")]
         self.option_index = self._index_options()
         self.envs = parse_env_names(gui_generic_dir / "platformio.ini")
+
+    def _merge_template_boards(
+        self,
+        upstream_template_boards: list[dict[str, Any]],
+        local_template_boards: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        merged = list(upstream_template_boards)
+        known_names = {str(template.get("NAME", "")) for template in merged}
+        for template in local_template_boards:
+            name = str(template.get("NAME", ""))
+            if name and name not in known_names:
+                merged.append(template)
+                known_names.add(name)
+        return merged
 
     def _index_options(self) -> dict[str, dict[str, Any]]:
         result: dict[str, dict[str, Any]] = {}
