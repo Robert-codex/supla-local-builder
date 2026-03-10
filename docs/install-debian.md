@@ -118,6 +118,8 @@ Projekt rozróżnia:
 - `Sonoff Dual R3 Lite`
 - `Sonoff Dual R3 Power Monitoring`
 
+Pomiar energii jest przewidziany dla `DUALR3 Power Monitoring`; `DUALR3 Lite` nie ma tego toru pomiarowego.
+
 W builderze preset `Sonoff Dual R3 Power Monitoring` pozwala ręcznie wybrać układ pomiarowy montowany w tej serii:
 
 - `BL0930`

@@ -74,6 +74,8 @@ Przed włączeniem usługi warto poprawić `LOCAL_BUILDER_PUBLIC_URL` w pliku `s
 
 `Sonoff Dual R3 Power Monitoring (DUALR3)` jest tu obsługiwany osobno od `Sonoff Dual R3 Lite`.
 
+Zgodnie z oficjalnym opisem Sonoff, dwukanałowy pomiar energii dotyczy `DUALR3`, a nie `DUALR3 Lite`.
+
 Lokalny builder ma preset sprzętowy dla `DUALR3 Power Monitoring`, który pozwala ręcznie dobrać układ pomiarowy występujący w tej serii:
 
 - `BL0930`
