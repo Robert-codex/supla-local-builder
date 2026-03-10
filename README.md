@@ -23,6 +23,35 @@ git submodule update --init --recursive
 
 To pobiera upstream `GUI-Generic` i nakłada lokalne zmiany dla MQTT, Zigbee gateway i lokalnego buildera OTA.
 
+Aktualny model utrzymania lokalnych zmian w submodule:
+
+- `external/GUI-Generic` ma lokalną gałąź `local-builder-patches`
+- główne repo śledzi commit tej gałęzi jako wskaźnik submodule
+
+Bezpieczna aktualizacja submodule:
+
+```bash
+cd /home/langnet/Projekty/Supla
+git fetch origin
+git checkout main
+git pull --ff-only
+
+cd /home/langnet/Projekty/Supla/external/GUI-Generic
+git fetch origin
+git checkout local-builder-patches
+git rebase origin/master
+
+cd /home/langnet/Projekty/Supla
+git add external/GUI-Generic
+git commit -m "Update GUI-Generic submodule"
+```
+
+Jeżeli rebase zgłosi konflikt, sprawdź najpierw:
+
+- `external/GUI-Generic/platformio.ini`
+- `external/GUI-Generic/src/GUI-Generic.ino`
+- `external/GUI-Generic/builder.json`
+
 ## Local Builder
 
 Lokalny builder uruchamia stronę WWW podobną do `gui-generic-builder.supla.io` i korzysta bezpośrednio z:
@@ -43,6 +72,47 @@ Domyślny adres:
 http://127.0.0.1:8181/
 ```
 
+Aktualnie skonfigurowany wariant publiczny w tym środowisku działa przez Cloudflare Tunnel:
+
+```text
+https://builder.regnal.eu/
+```
+
+## Cloudflare Tunnel
+
+Pliki użyte w aktualnej konfiguracji:
+
+- [cloudflared-builder.yml](/home/langnet/Projekty/Supla/scripts/cloudflared-builder.yml)
+- [cloudflared-builder.service](/home/langnet/Projekty/Supla/scripts/cloudflared-builder.service)
+- [local_builder.service](/home/langnet/Projekty/Supla/scripts/local_builder.service)
+
+Lokalny builder działa jako origin tylko na `127.0.0.1:8181`, a publiczny ruch HTTPS obsługuje Cloudflare Tunnel pod `builder.regnal.eu`.
+
+Podstawowe komendy utrzymaniowe:
+
+```bash
+sudo systemctl status local_builder.service
+sudo systemctl status cloudflared-builder.service
+sudo journalctl -u local_builder.service -f
+sudo journalctl -u cloudflared-builder.service -f
+cloudflared tunnel info supla-builder
+```
+
+## LAN / lokalny HTTPS
+
+Alternatywnie możesz wystawić builder lokalnie w LAN z własnym certyfikatem:
+
+```bash
+./scripts/generate_local_tls_cert.sh localhost 192.168.1.100
+export LOCAL_BUILDER_PUBLIC_URL="https://192.168.1.100:8181/"
+export LOCAL_BUILDER_TLS_CERT="$PWD/local_builder/data/certs/local-builder.crt"
+export LOCAL_BUILDER_TLS_KEY="$PWD/local_builder/data/certs/local-builder.key"
+export LOCAL_BUILDER_HTTP_REDIRECT_PORT="80"
+./scripts/run_local_builder.sh
+```
+
+Przekierowanie HTTP działa z osobnego portu, zwykle `80`, na adres HTTPS buildera. Nie da się zrobić przekierowania z `http://IP:8181/` do `https://IP:8181/`, bo port `8181` jest zajęty przez TLS.
+
 Wymagania:
 
 - `python3`
@@ -60,6 +130,16 @@ Jeżeli builder ma generować linki OTA dostępne z sieci lokalnej, ustaw:
 export LOCAL_BUILDER_PUBLIC_URL="http://IP_TWOJEGO_HOSTA:8181/"
 ```
 
+Jeżeli chcesz używać Web Serial z Chrome po adresie LAN, wystaw builder po HTTPS:
+
+```bash
+./scripts/generate_local_tls_cert.sh localhost IP_TWOJEGO_HOSTA
+export LOCAL_BUILDER_PUBLIC_URL="https://IP_TWOJEGO_HOSTA:8181/"
+export LOCAL_BUILDER_TLS_CERT="$PWD/local_builder/data/certs/local-builder.crt"
+export LOCAL_BUILDER_TLS_KEY="$PWD/local_builder/data/certs/local-builder.key"
+./scripts/run_local_builder.sh
+```
+
 Uruchomienie jako usługa `systemd`:
 
 ```bash
@@ -68,7 +148,13 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now local_builder.service
 ```
 
-Przed włączeniem usługi warto poprawić `LOCAL_BUILDER_PUBLIC_URL` w pliku `scripts/local_builder.service` na właściwy adres hosta w LAN.
+Przed włączeniem usługi ustaw właściwy adres hosta w LAN i wygeneruj certyfikat dla tego hosta:
+
+```bash
+./scripts/generate_local_tls_cert.sh localhost IP_TWOJEGO_HOSTA
+```
+
+Następnie popraw `LOCAL_BUILDER_PUBLIC_URL`, `LOCAL_BUILDER_TLS_CERT` i `LOCAL_BUILDER_TLS_KEY` w pliku [local_builder.service](/home/langnet/Projekty/Supla/scripts/local_builder.service).
 
 ## Sonoff Dual R3 Power Monitoring
 
