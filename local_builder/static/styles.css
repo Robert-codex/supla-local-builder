@@ -273,6 +273,67 @@ button.ghost {
   font-size: 12px;
 }
 
+.install-panel {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.install-head {
+  margin-bottom: 12px;
+}
+
+.install-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(28, 42, 47, 0.08);
+  color: var(--muted);
+}
+
+.install-summary {
+  margin: 0 0 14px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.install-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.install-artifacts {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.install-artifacts a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  text-decoration: none;
+  border: 1px solid rgba(13, 124, 102, 0.16);
+  background: rgba(13, 124, 102, 0.08);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.install-note {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .legend {
   display: flex;
   gap: 8px;
@@ -420,6 +481,10 @@ button.ghost {
   }
 
   .actions {
+    flex-direction: column;
+  }
+
+  .install-actions {
     flex-direction: column;
   }
 

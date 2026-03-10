@@ -12,7 +12,7 @@
       <div>
         <p class="eyebrow">SUPLA / GUI Generic</p>
         <h1>supla-local-builder</h1>
-        <p class="lede">Lokalny generator firmware oparty o <code>builder.json</code>, <code>template_boards.json</code> i profile PlatformIO z Twojego repozytorium.</p>
+        <p class="lede">Lokalny builder firmware SUPLA z układem i przepływem pracy zbliżonym do oficjalnego <code>gui-generic-builder.supla.io</code>: wybór platformy, template board, opcji firmware, build i gotowa instalacja.</p>
       </div>
       <div class="hero-meta">
         <div class="meta-card">
@@ -35,7 +35,11 @@
 
         <div class="grid">
           <label>
-            <span>Środowisko</span>
+            <span>Procesor / platforma</span>
+            <select id="processorSelect"></select>
+          </label>
+          <label>
+            <span>Profil builda</span>
             <select id="envSelect"></select>
           </label>
           <label>
@@ -55,6 +59,10 @@
           <label>
             <span>Nazwa zestawu</span>
             <input id="customName" type="text" placeholder="opcjonalnie">
+          </label>
+          <label class="wide">
+            <span>Filtr template board</span>
+            <input id="templateFilter" type="search" placeholder="np. Shelly, Sonoff, Gosund">
           </label>
           <label class="wide">
             <span>Template board</span>
@@ -135,6 +143,28 @@
         <div id="buildStatus" class="build-status empty">Nie uruchomiono jeszcze builda.</div>
         <div id="artifactLinks" class="artifact-links"></div>
         <pre id="buildLog" class="build-log"></pre>
+
+        <section class="install-panel">
+          <div class="panel-head install-head">
+            <h2>Instalacja</h2>
+            <span id="installBadge" class="install-badge">brak builda</span>
+          </div>
+          <p id="installSummary" class="install-summary">
+            Po udanym buildzie pojawią się tutaj linki OTA i pliki firmware do pobrania.
+          </p>
+          <label class="wide">
+            <span>Adres OTA</span>
+            <input id="otaUrl" type="text" readonly placeholder="pojawi się po buildzie">
+          </label>
+          <div class="install-actions">
+            <button id="copyOtaButton" class="ghost" type="button">Kopiuj OTA</button>
+            <button id="openOtaButton" class="ghost" type="button">Otwórz OTA</button>
+          </div>
+          <div id="installArtifacts" class="install-artifacts"></div>
+          <p class="install-note">
+            Dla ESP8266/ESP8285 pobierz zwykle <code>bin</code>. Dla ESP32 korzystaj z <code>factory</code>, jeśli chcesz pierwszy flash przez UART.
+          </p>
+        </section>
       </section>
     </main>
 

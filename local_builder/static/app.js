@@ -3,6 +3,7 @@ const state = {
   selected: new Set(),
   currentBuildHash: "",
   pollTimer: null,
+  envFamilies: [],
 };
 
 const DUAL_R3_PM_TEMPLATE_NAME = "Sonoff Dual R3 Power Monitoring";
@@ -45,10 +46,12 @@ const DUAL_R3_PRESETS = {
 const els = {
   catalogVersion: document.getElementById("catalogVersion"),
   publicUrl: document.getElementById("publicUrl"),
+  processorSelect: document.getElementById("processorSelect"),
   envSelect: document.getElementById("envSelect"),
   languageSelect: document.getElementById("languageSelect"),
   buildVersion: document.getElementById("buildVersion"),
   customName: document.getElementById("customName"),
+  templateFilter: document.getElementById("templateFilter"),
   templateSelect: document.getElementById("templateSelect"),
   hardwarePreset: document.getElementById("hardwarePreset"),
   meterChip: document.getElementById("meterChip"),
@@ -67,6 +70,12 @@ const els = {
   buildStatus: document.getElementById("buildStatus"),
   artifactLinks: document.getElementById("artifactLinks"),
   buildLog: document.getElementById("buildLog"),
+  installBadge: document.getElementById("installBadge"),
+  installSummary: document.getElementById("installSummary"),
+  otaUrl: document.getElementById("otaUrl"),
+  copyOtaButton: document.getElementById("copyOtaButton"),
+  openOtaButton: document.getElementById("openOtaButton"),
+  installArtifacts: document.getElementById("installArtifacts"),
   buildHistory: document.getElementById("buildHistory"),
   refreshBuilds: document.getElementById("refreshBuilds"),
   resetDefaults: document.getElementById("resetDefaults"),
@@ -104,6 +113,82 @@ function sectionLabel(sectionKey) {
 
 function getOption(optionId) {
   return state.config.options[optionId];
+}
+
+function detectEnvFamily(env) {
+  if (env.includes("ESP32C6")) {
+    return "esp32c6";
+  }
+  if (env.includes("ESP32C3")) {
+    return "esp32c3";
+  }
+  if (env.includes("ESP32")) {
+    return "esp32";
+  }
+  return "esp82xx";
+}
+
+function envFamilyLabel(family) {
+  switch (family) {
+    case "esp32":
+      return "ESP32";
+    case "esp32c3":
+      return "ESP32-C3";
+    case "esp32c6":
+      return "ESP32-C6";
+    default:
+      return "ESP8266 / ESP8285";
+  }
+}
+
+function buildEnvFamilies() {
+  const seen = new Set();
+  state.envFamilies = state.config.envs
+    .map((env) => detectEnvFamily(env))
+    .filter((family) => {
+      if (seen.has(family)) {
+        return false;
+      }
+      seen.add(family);
+      return true;
+    });
+}
+
+function renderProcessorSelect() {
+  els.processorSelect.innerHTML = state.envFamilies
+    .map((family) => `<option value="${escapeHtml(family)}">${escapeHtml(envFamilyLabel(family))}</option>`)
+    .join("");
+}
+
+function renderEnvSelect(preferredEnv = "") {
+  const family = els.processorSelect.value || state.envFamilies[0];
+  const envs = state.config.envs.filter((env) => detectEnvFamily(env) === family);
+  els.envSelect.innerHTML = envs
+    .map((env) => `<option value="${escapeHtml(env)}">${escapeHtml(env)}</option>`)
+    .join("");
+
+  if (preferredEnv && envs.includes(preferredEnv)) {
+    els.envSelect.value = preferredEnv;
+  } else if (envs.length) {
+    els.envSelect.value = envs[0];
+  }
+}
+
+function renderTemplateSelect(preferredTemplate = "") {
+  const search = els.templateFilter.value.trim().toLowerCase();
+  const templates = state.config.templates.filter((template) => (
+    !search || template.NAME.toLowerCase().includes(search)
+  ));
+
+  els.templateSelect.innerHTML = ['<option value="">brak</option>']
+    .concat(templates.map((template) => (
+      `<option value="${escapeHtml(template.NAME)}">${escapeHtml(template.NAME)}</option>`
+    )))
+    .join("");
+
+  if (preferredTemplate && templates.some((template) => template.NAME === preferredTemplate)) {
+    els.templateSelect.value = preferredTemplate;
+  }
 }
 
 function normalizeSelection() {
@@ -358,7 +443,9 @@ function applyHardwarePresetSelection() {
 function setDefaults() {
   state.selected = new Set(state.config.defaults.selected_options);
   els.languageSelect.value = state.config.defaults.language;
-  els.envSelect.value = state.config.defaults.env;
+  els.processorSelect.value = detectEnvFamily(state.config.defaults.env);
+  renderEnvSelect(state.config.defaults.env);
+  renderTemplateSelect();
   const today = new Date();
   const yy = String(today.getFullYear()).slice(-2);
   const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -375,6 +462,7 @@ function setDefaults() {
   els.templateJson.value = "";
   normalizeSelection();
   renderAll();
+  renderInstallPanel(null);
 }
 
 function buildOptionMeta(option) {
@@ -504,6 +592,7 @@ function renderStatus(payload) {
     els.buildStatus.textContent = "Nie uruchomiono jeszcze builda.";
     els.artifactLinks.innerHTML = "";
     els.buildLog.textContent = "";
+    renderInstallPanel(null);
     return;
   }
 
@@ -521,12 +610,40 @@ function renderStatus(payload) {
     `<a href="${encodeURI(url)}" target="_blank" rel="noreferrer">${escapeHtml(kind)}</a>`
   )).join("");
   els.buildLog.textContent = payload.log_tail || "";
+  renderInstallPanel(payload);
 }
 
 function renderAll() {
   updateHardwarePresetVisibility();
   renderOptions();
   renderSummary();
+}
+
+function renderInstallPanel(payload) {
+  if (!payload || !payload.hash) {
+    els.installBadge.textContent = "brak builda";
+    els.installSummary.textContent = "Po udanym buildzie pojawią się tutaj linki OTA i pliki firmware do pobrania.";
+    els.otaUrl.value = "";
+    els.installArtifacts.innerHTML = "";
+    return;
+  }
+
+  const ota = payload.compatibility_url || "";
+  els.otaUrl.value = ota;
+  els.installBadge.textContent = payload.status;
+
+  if (payload.status === "ready") {
+    els.installSummary.textContent = `Build ${payload.hash} jest gotowy. Możesz użyć OTA albo pobrać artefakty do flashowania lokalnego.`;
+  } else if (payload.status === "failed") {
+    els.installSummary.textContent = `Build ${payload.hash} nie przeszedł. Sprawdź log i popraw konfigurację przed kolejną próbą.`;
+  } else {
+    els.installSummary.textContent = `Build ${payload.hash} jest w toku. Gdy skończy się poprawnie, pojawią się tu gotowe pliki do instalacji.`;
+  }
+
+  const links = payload.artifact_urls || {};
+  els.installArtifacts.innerHTML = Object.entries(links).map(([kind, url]) => (
+    `<a href="${encodeURI(url)}" target="_blank" rel="noreferrer">Pobierz ${escapeHtml(kind)}</a>`
+  )).join("");
 }
 
 function selectedTemplateJson() {
@@ -629,29 +746,34 @@ async function triggerBuild() {
 async function bootstrap() {
   const response = await fetch("/api/config");
   state.config = await response.json();
+  buildEnvFamilies();
 
   els.catalogVersion.textContent = state.config.version || "-";
   els.publicUrl.textContent = state.config.public_url || "-";
 
-  els.envSelect.innerHTML = state.config.envs
-    .map((env) => `<option value="${escapeHtml(env)}">${escapeHtml(env)}</option>`)
-    .join("");
-  els.templateSelect.innerHTML = ['<option value="">brak</option>']
-    .concat(state.config.templates.map((template) => (
-      `<option value="${escapeHtml(template.NAME)}">${escapeHtml(template.NAME)}</option>`
-    )))
-    .join("");
+  renderProcessorSelect();
+  renderEnvSelect(state.config.defaults.env);
+  renderTemplateSelect();
 
   setDefaults();
   await fetchBuildHistory();
 
   els.searchInput.addEventListener("input", renderOptions);
   els.languageSelect.addEventListener("change", renderAll);
+  els.processorSelect.addEventListener("change", () => {
+    renderEnvSelect();
+    renderSummary();
+  });
+  els.templateFilter.addEventListener("input", () => {
+    renderTemplateSelect(els.templateSelect.value);
+  });
   els.hardwarePreset.addEventListener("change", () => {
     applyDualR3PresetDefaults();
     if (isDualR3PresetActive()) {
+      els.processorSelect.value = "esp32";
+      renderEnvSelect("GUI_Generic_ESP32");
+      renderTemplateSelect(DUAL_R3_PM_TEMPLATE_NAME);
       els.templateSelect.value = DUAL_R3_PM_TEMPLATE_NAME;
-      els.envSelect.value = "GUI_Generic_ESP32";
     }
     normalizeSelection();
     renderAll();
@@ -676,6 +798,22 @@ async function bootstrap() {
   });
   els.templateJson.addEventListener("input", renderSummary);
   els.envSelect.addEventListener("change", renderSummary);
+  els.copyOtaButton.addEventListener("click", async () => {
+    if (!els.otaUrl.value) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(els.otaUrl.value);
+      els.installBadge.textContent = "skopiowano OTA";
+    } catch {
+      els.installBadge.textContent = "błąd schowka";
+    }
+  });
+  els.openOtaButton.addEventListener("click", () => {
+    if (els.otaUrl.value) {
+      window.open(els.otaUrl.value, "_blank", "noopener,noreferrer");
+    }
+  });
   els.buildButton.addEventListener("click", triggerBuild);
   els.refreshBuilds.addEventListener("click", fetchBuildHistory);
   els.resetDefaults.addEventListener("click", setDefaults);
