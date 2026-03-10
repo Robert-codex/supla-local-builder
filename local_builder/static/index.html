@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Local GUI Generic Builder</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">SUPLA / GUI Generic</p>
+        <h1>Local Builder</h1>
+        <p class="lede">Lokalny generator firmware oparty o <code>builder.json</code>, <code>template_boards.json</code> i profile PlatformIO z Twojego repozytorium.</p>
+      </div>
+      <div class="hero-meta">
+        <div class="meta-card">
+          <span>Wersja katalogu</span>
+          <strong id="catalogVersion">-</strong>
+        </div>
+        <div class="meta-card">
+          <span>Publiczny URL OTA</span>
+          <strong id="publicUrl">-</strong>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel controls">
+        <div class="panel-head">
+          <h2>Konfiguracja builda</h2>
+          <button id="resetDefaults" class="ghost">Przywróć domyślne</button>
+        </div>
+
+        <div class="grid">
+          <label>
+            <span>Środowisko</span>
+            <select id="envSelect"></select>
+          </label>
+          <label>
+            <span>Język UI</span>
+            <select id="languageSelect">
+              <option value="pl">Polski</option>
+              <option value="en">English</option>
+              <option value="es">Español</option>
+              <option value="de">Deutsch</option>
+              <option value="fr">Français</option>
+            </select>
+          </label>
+          <label>
+            <span>Wersja firmware</span>
+            <input id="buildVersion" type="text" placeholder="np. 26.03.10">
+          </label>
+          <label>
+            <span>Nazwa zestawu</span>
+            <input id="customName" type="text" placeholder="opcjonalnie">
+          </label>
+          <label class="wide">
+            <span>Template board</span>
+            <select id="templateSelect"></select>
+          </label>
+          <label class="wide">
+            <span>Własny JSON template</span>
+            <textarea id="templateJson" rows="4" placeholder='{"NAME":"Custom","GPIO":[...]}'></textarea>
+          </label>
+          <label class="wide">
+            <span>Szukaj opcji</span>
+            <input id="searchInput" type="search" placeholder="np. MQTT, relay, Zigbee">
+          </label>
+        </div>
+
+        <div class="summary" id="selectionSummary"></div>
+
+        <div class="actions">
+          <button id="buildButton">Zbuduj firmware</button>
+          <button id="refreshBuilds" class="ghost">Odśwież historię</button>
+        </div>
+      </section>
+
+      <section class="panel status-panel">
+        <div class="panel-head">
+          <h2>Status builda</h2>
+        </div>
+        <div id="buildStatus" class="build-status empty">Nie uruchomiono jeszcze builda.</div>
+        <div id="artifactLinks" class="artifact-links"></div>
+        <pre id="buildLog" class="build-log"></pre>
+      </section>
+    </main>
+
+    <section class="panel options-panel">
+      <div class="panel-head">
+        <h2>Opcje firmware</h2>
+        <div class="legend">
+          <span class="badge new">new</span>
+          <span class="badge test">test</span>
+        </div>
+      </div>
+      <div id="optionsRoot" class="sections"></div>
+    </section>
+
+    <section class="panel history-panel">
+      <div class="panel-head">
+        <h2>Ostatnie buildy</h2>
+      </div>
+      <div id="buildHistory" class="history"></div>
+    </section>
+  </div>
+
+  <template id="optionTemplate">
+    <label class="option-card">
+      <input type="checkbox">
+      <div class="option-body">
+        <div class="option-head">
+          <strong class="option-name"></strong>
+          <div class="option-badges"></div>
+        </div>
+        <p class="option-desc"></p>
+        <p class="option-meta"></p>
+      </div>
+    </label>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>

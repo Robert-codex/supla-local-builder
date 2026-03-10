@@ -1,0 +1,66 @@
+/*
+  Copyright (C) krycha88
+
+  This program is free software; you can redistribute it and/or
+  modify it under the terms of the GNU General Public License
+  as published by the Free Software Foundation; either version 2
+  of the License, or (at your option) any later version.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+*/
+#ifdef SUPLA_MPX_5XXX
+#ifndef _mpx_5xxx_h
+#define _mpx_5xxx_h
+
+#include <Arduino.h>
+#include <supla/storage/storage.h>
+
+#include "distance_hygro_meter.h"
+#include "supla/channel.h"
+
+namespace Supla {
+namespace Sensor {
+class MPX_5XXX : public Distance {
+ public:
+  MPX_5XXX(uint8_t pin);
+
+  void onInit();
+  virtual double getValue();
+  void iterateAlways();
+  void onSaveState();
+  void onLoadState();
+
+  void calibrateEmptyThank();
+  void calibrateFullThank();
+
+  void setEmptyValue(int16_t value);
+  int16_t getEmptyValue();
+
+  void setFullValue(int16_t value);
+  int16_t getFullValue();
+
+  void setThankHeight(int16_t value);
+  int16_t getThankHeight();
+
+  int16_t readValuesFromDevice();
+
+ protected:
+  uint8_t _pin;
+
+  double sensorValue;
+  
+  int16_t _emptyValue;
+  int16_t _fullValue;
+  int16_t _thankHeight;  // maximum thank height reading in centimeters
+};
+
+};  // namespace Sensor
+};  // namespace Supla
+
+#endif
+#endif

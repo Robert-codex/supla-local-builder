@@ -1,0 +1,16 @@
+[Unit]
+Description=Local SUPLA GUI Generic Builder
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/langnet/Projekty/Supla
+Environment=LOCAL_BUILDER_HOST=0.0.0.0
+Environment=LOCAL_BUILDER_PORT=8181
+Environment=LOCAL_BUILDER_PUBLIC_URL=http://192.168.2.119:8181/
+ExecStart=/home/langnet/Projekty/Supla/scripts/run_local_builder.sh
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

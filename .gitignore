@@ -31,7 +31,10 @@ __pycache__/
 .pytest_cache/
 .venv/
 venv/
+.venv-local-builder/
+.local-builder-py/
 
 # Misc
 tmp/
 *.tmp
+local_builder/data/
