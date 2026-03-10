@@ -19,6 +19,28 @@ const TEMPLATE_CODES = {
 };
 const DUAL_R3_REQUIRED_OPTIONS = ["SUPLA_RELAY", "SUPLA_BUTTON"];
 const DUAL_R3_METER_OPTIONS = ["SUPLA_CSE7761", "SUPLA_CSE7766", "SUPLA_BL0930"];
+const DUAL_R3_PRESETS = {
+  sonoff_dual_r3_pm: {
+    chip: "none",
+    pins: {},
+    label: "Sonoff Dual R3 Power Monitoring",
+  },
+  sonoff_dual_r3_pm_bl0930: {
+    chip: "bl0930",
+    pins: {},
+    label: "Sonoff Dual R3 + BL0930",
+  },
+  sonoff_dual_r3_pm_cse7761: {
+    chip: "cse7761",
+    pins: { tx: 25, rx: 26 },
+    label: "Sonoff Dual R3 + CSE7761",
+  },
+  sonoff_dual_r3_pm_cse7766: {
+    chip: "cse7766",
+    pins: { rx: 26 },
+    label: "Sonoff Dual R3 + CSE7766",
+  },
+};
 
 const els = {
   catalogVersion: document.getElementById("catalogVersion"),
@@ -183,7 +205,11 @@ function setTemplatePin(template, pin, code) {
 }
 
 function isDualR3PresetActive() {
-  return els.hardwarePreset.value === "sonoff_dual_r3_pm";
+  return Object.hasOwn(DUAL_R3_PRESETS, els.hardwarePreset.value);
+}
+
+function currentDualR3Preset() {
+  return DUAL_R3_PRESETS[els.hardwarePreset.value] || null;
 }
 
 function dualR3MeterRequirements(chip) {
@@ -230,7 +256,9 @@ function updateHardwarePresetVisibility() {
     return;
   }
 
-  els.hardwarePresetNote.textContent = dualR3MeterRequirements(els.meterChip.value).note;
+  const preset = currentDualR3Preset();
+  const prefix = preset ? `${preset.label}. ` : "";
+  els.hardwarePresetNote.textContent = `${prefix}${dualR3MeterRequirements(els.meterChip.value).note}`;
 }
 
 function setRecommendedMeterPins(chip) {
@@ -246,6 +274,20 @@ function setRecommendedMeterPins(chip) {
       els.meterRxPin.value = "26";
     }
   }
+}
+
+function applyDualR3PresetDefaults() {
+  const preset = currentDualR3Preset();
+  if (!preset) {
+    return;
+  }
+
+  els.meterChip.value = preset.chip;
+  els.meterRxPin.value = preset.pins.rx ?? "";
+  els.meterTxPin.value = preset.pins.tx ?? "";
+  els.meterCfPin.value = preset.pins.cf ?? "";
+  els.meterCf1Pin.value = preset.pins.cf1 ?? "";
+  els.meterSelPin.value = preset.pins.sel ?? "";
 }
 
 function buildDualR3Template() {
@@ -429,7 +471,7 @@ function renderOptions() {
 function renderSummary() {
   const selectedList = [...state.selected].sort();
   const templateName = els.templateSelect.value || "brak";
-  const hardwarePreset = els.hardwarePreset.value || "brak";
+  const hardwarePreset = currentDualR3Preset()?.label || els.hardwarePreset.value || "brak";
   const meterChip = isDualR3PresetActive() ? els.meterChip.value : "brak";
   els.selectionSummary.innerHTML = `
     <strong>${selectedList.length}</strong> aktywnych opcji |
@@ -606,6 +648,7 @@ async function bootstrap() {
   els.searchInput.addEventListener("input", renderOptions);
   els.languageSelect.addEventListener("change", renderAll);
   els.hardwarePreset.addEventListener("change", () => {
+    applyDualR3PresetDefaults();
     if (isDualR3PresetActive()) {
       els.templateSelect.value = DUAL_R3_PM_TEMPLATE_NAME;
       els.envSelect.value = "GUI_Generic_ESP32";

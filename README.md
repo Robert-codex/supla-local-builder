@@ -82,7 +82,13 @@ Lokalny builder ma preset sprzętowy dla `DUALR3 Power Monitoring`, który pozwa
 - `CSE7761`
 - `CSE7766`
 
-Preset automatycznie ustawia bazowy template płytki, a układ i piny pomiarowe można dobrać z poziomu UI.
+Dostępne są też gotowe warianty:
+
+- `Sonoff Dual R3 + BL0930`
+- `Sonoff Dual R3 + CSE7761`
+- `Sonoff Dual R3 + CSE7766`
+
+Preset automatycznie ustawia bazowy template płytki, a warianty z licznikiem wypełniają też domyślne ustawienia układu pomiarowego.
 
 ## Debian Installation
 

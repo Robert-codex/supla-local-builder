@@ -126,4 +126,10 @@ W builderze preset `Sonoff Dual R3 Power Monitoring` pozwala ręcznie wybrać uk
 - `CSE7761`
 - `CSE7766`
 
+Są też gotowe warianty:
+
+- `Sonoff Dual R3 + BL0930`
+- `Sonoff Dual R3 + CSE7761`
+- `Sonoff Dual R3 + CSE7766`
+
 Preset ustawia bazowy template płytki i dobiera odpowiednią opcję firmware bez ręcznego pisania `template JSON`.
