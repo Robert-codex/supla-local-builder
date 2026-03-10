@@ -1,19 +1,20 @@
 diff --git a/builder.json b/builder.json
-index 36b76a3b..31d3b7ea 100644
+index 36b76a3b..ca83a5f4 100644
 --- a/builder.json
 +++ b/builder.json
-@@ -1134,6 +1134,50 @@
+@@ -1134,6 +1134,52 @@
  				"desc": "Paramètres de l´appareil->Autre. Il permet le fonctionnement du compteur d´énergie CSE7766."
  			}
  		},
 +		"SUPLA_CSE7761": {
 +			"name": "Licznik energii CSE7761",
-+			"desc": "Ustawienia urządzenia->Inne. Umożliwia obsługę licznika energii CSE7761 przez ten sam interfejs UART co CSE7766.",
++			"desc": "Opcja zarezerwowana. Dokumentacja producenta opisuje dwa kanały prądowe oraz interfejs rejestrowy UART/SPI, więc układ nie jest zgodny z obecnym sterownikiem CSE7766 i wymaga dedykowanej implementacji.",
 +			"defOn": false,
-+			"opts": "-D SUPLA_CSE7766",
++			"test": true,
++			"alertOn": "CSE7761 nie jest zgodny ze sterownikiem CSE7766. Ten build wymaga dedykowanego drivera UART/SPI i obecnie zakończy się błędem kompilacji.",
 +			"en": {
 +				"name": "Energy meter CSE7761",
-+				"desc": "Device settings->Other. It enables CSE7761 energy meter support through the same UART path as CSE7766."
++				"desc": "Reserved option. The manufacturer documentation describes two current channels and a register-based UART/SPI interface, so the device is not compatible with the current CSE7766 driver and requires a dedicated implementation."
 +			},
 +			"es": {
 +				"name": "Contador de energía CSE7761",
@@ -30,12 +31,13 @@ index 36b76a3b..31d3b7ea 100644
 +		},
 +		"SUPLA_BL0930": {
 +			"name": "Licznik energii BL0930",
-+			"desc": "Ustawienia urządzenia->Inne. Umożliwia obsługę licznika energii BL0930 przez ten sam interfejs UART co CSE7766.",
++			"desc": "Opcja zarezerwowana. Dokumentacja producenta opisuje wyjścia impulsowe CF/F1/F2 oraz REVP, więc układ nie jest zgodny z obecnym sterownikiem UART dla CSE7766 i wymaga osobnego drivera impulsowego.",
 +			"defOn": false,
-+			"opts": "-D SUPLA_CSE7766",
++			"test": true,
++			"alertOn": "BL0930 nie używa protokołu UART CSE7766. Ten build wymaga dedykowanego drivera impulsowego i obecnie zakończy się błędem kompilacji.",
 +			"en": {
 +				"name": "Energy meter BL0930",
-+				"desc": "Device settings->Other. It enables BL0930 energy meter support through the same UART path as CSE7766."
++				"desc": "Reserved option. The manufacturer documentation describes CF/F1/F2 pulse outputs and REVP, so the device is not compatible with the current CSE7766 UART driver and requires a dedicated pulse-based implementation."
 +			},
 +			"es": {
 +				"name": "Contador de energía BL0930",
@@ -73,7 +75,7 @@ index 8a9446ff..e6769231 100644
 \ No newline at end of file
 +lib_ldf_mode = chain+
 diff --git a/src/GUI-Generic.ino b/src/GUI-Generic.ino
-index e9f52de2..63dee405 100644
+index e9f52de2..08607002 100644
 --- a/src/GUI-Generic.ino
 +++ b/src/GUI-Generic.ino
 @@ -62,6 +62,10 @@ void setup() {
@@ -87,15 +89,6 @@ index e9f52de2..63dee405 100644
  #ifdef GUI_SENSOR_I2C_EXPENDER
    Expander = new Supla::Control::ConfigExpander();
  #endif
-@@ -581,7 +585,7 @@ void setup() {
-   }
- #endif
- 
--#ifdef SUPLA_CSE7766
-+#if defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
-   if (ConfigESP->getGpio(FUNCTION_CSE7766_RX) != OFF_GPIO) {
-     Supla::GUI::addCSE7766(ConfigESP->getGpio(FUNCTION_CSE7766_RX));
-     improvSerialComponent->disable();
 @@ -997,6 +1001,10 @@ void loop() {
    const uint32_t now = millis();
    SuplaDevice.iterate();
@@ -108,15 +101,15 @@ index e9f52de2..63dee405 100644
    uint32_t delay_time = LOOP_INTERVAL;
    if (now - last_loop < LOOP_INTERVAL)
 diff --git a/src/GUI-Generic_Config.h b/src/GUI-Generic_Config.h
-index 7c9351c6..1ec7a76d 100644
+index 7c9351c6..90732318 100644
 --- a/src/GUI-Generic_Config.h
 +++ b/src/GUI-Generic_Config.h
 @@ -70,6 +70,8 @@
  // #define SUPLA_DIRECT_LINKS
  // #define SUPLA_PZEM_V_3
  // #define SUPLA_CSE7766
-+// #define SUPLA_CSE7761
-+// #define SUPLA_BL0930
++// #define SUPLA_CSE7761    // unsupported: requires a dedicated dual-channel UART/SPI driver
++// #define SUPLA_BL0930     // unsupported: requires a dedicated CF/F1/F2 pulse driver
  // #define SUPLA_DEEP_SLEEP
  // #define SUPLA_DIRECT_LINKS_SENSOR_THERMOMETR
  // #define SUPLA_RF_BRIDGE
@@ -194,7 +187,7 @@ index 647fe2ba..926124b9 100644
   private:
    int _optionCount;
 diff --git a/src/SuplaDeviceGUI.cpp b/src/SuplaDeviceGUI.cpp
-index 0e566510..9fd99b69 100644
+index 0e566510..6528de55 100644
 --- a/src/SuplaDeviceGUI.cpp
 +++ b/src/SuplaDeviceGUI.cpp
 @@ -24,6 +24,13 @@ void begin() {
@@ -211,49 +204,26 @@ index 0e566510..9fd99b69 100644
  #ifdef BUILD_VERSION
    String ver = "GG v" + String(BUILD_VERSION);
    ver.reserve(16);
-@@ -801,7 +808,7 @@ void addHLW8012(int8_t pinCF, int8_t pinCF1, int8_t pinSEL) {
- }
- #endif
- 
--#ifdef SUPLA_CSE7766
-+#if defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
- Supla::Sensor::CSE_7766 *counterCSE7766 = nullptr;
- 
- void addCSE7766(int8_t pinRX) {
-@@ -809,7 +816,7 @@ void addCSE7766(int8_t pinRX) {
-     counterCSE7766 = new Supla::Sensor::CSE_7766(pinRX);
- 
- #ifdef SUPLA_CONDITIONS
--    Supla::GUI::Conditions::addConditionsSensor(SENSOR_CSE7766, S_CSE7766, counterCSE7766);
-+    Supla::GUI::Conditions::addConditionsSensor(SENSOR_CSE7766, S_CSE77XX_UART, counterCSE7766);
- #endif
-   }
-   eeprom.setStateSavePeriod(TIME_SAVE_PERIOD_IMPULSE_COUNTER_SEK * 1000);
 diff --git a/src/SuplaDeviceGUI.h b/src/SuplaDeviceGUI.h
-index dc610b87..b827eb74 100644
+index dc610b87..a7ac7f81 100644
 --- a/src/SuplaDeviceGUI.h
 +++ b/src/SuplaDeviceGUI.h
-@@ -20,6 +20,10 @@
+@@ -20,6 +20,14 @@
  #include "GUI-Generic_Config.h"
  #include "GUIGenericCommonDefined.h"
  
-+#if (defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)) && !defined(SUPLA_CSE7766)
-+#define SUPLA_CSE7766
++#if defined(SUPLA_BL0930)
++#error "BL0930 is not supported by GUI-Generic. The manufacturer documentation describes pulse outputs CF/F1/F2, not the CSE7766 UART protocol."
++#endif
++
++#if defined(SUPLA_CSE7761)
++#error "CSE7761 is not supported by GUI-Generic. The manufacturer documentation describes a dual-current UART/SPI register interface, not the single-channel CSE7766 UART protocol."
 +#endif
 +
  #include <SuplaDeviceExtensions.h>
  #include <SuplaDevice.h>
  #include "src/control/ControlGUI.h"
-@@ -117,7 +121,7 @@
- #ifdef SUPLA_HLW8012
- #include "src/sensor/HLW_8012.h"
- #endif
--#ifdef SUPLA_CSE7766
-+#if defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
- #include <supla/sensor/CSE_7766.h>
- #endif
- 
-@@ -190,6 +194,10 @@
+@@ -190,6 +198,10 @@
  
  #include "src/improv/improv_serial_component.h"
  #include "src/network/SuplaGuiWiFi.h"
@@ -264,98 +234,19 @@ index dc610b87..b827eb74 100644
  
  #ifdef SUPLA_VINDRIKTNING_IKEA_KPOP
  #include "src/sensor/VindriktningIkea.h"
-@@ -361,7 +369,7 @@ extern Supla::Sensor::HLW_8012 *counterHLW8012;
- void addHLW8012(int8_t pinCF, int8_t pinCF1, int8_t pinSEL);
- #endif
- 
--#ifdef SUPLA_CSE7766
-+#if defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
- extern Supla::Sensor::CSE_7766 *counterCSE7766;
- void addCSE7766(int8_t pinRX);
- #endif
 diff --git a/src/SuplaWebPageOther.cpp b/src/SuplaWebPageOther.cpp
-index d1c9c22e..abcf617b 100644
+index d1c9c22e..424ca08e 100644
 --- a/src/SuplaWebPageOther.cpp
 +++ b/src/SuplaWebPageOther.cpp
-@@ -59,7 +59,7 @@ void createWebPageOther() {
-   });
+@@ -126,7 +126,7 @@ void handleOther(int save) {
  #endif
  
--#if defined(SUPLA_HLW8012) || defined(SUPLA_CSE7766)
-+#if defined(SUPLA_HLW8012) || defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
-   if ((ConfigESP->getGpio(FUNCTION_CF) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_CF1) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_SEL) != OFF_GPIO) ||
-       ConfigESP->getGpio(FUNCTION_CSE7766_RX) != OFF_GPIO) {
-     WebServer->httpServer->on(getURL(PATH_CALIBRATE), [&]() {
-@@ -125,8 +125,8 @@ void handleOther(int save) {
-   addFormHeaderEnd();
- #endif
- 
--#ifdef SUPLA_CSE7766
+ #ifdef SUPLA_CSE7766
 -  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + F("CSE7766"));
-+#if defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
-+  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_CSE77XX_UART);
++  addFormHeader(String(S_GPIO_SETTINGS_FOR) + S_SPACE + S_CSE7766);
    addListGPIOBox(INPUT_CSE7766_RX, S_RX, FUNCTION_CSE7766_RX);
    if (ConfigESP->getGpio(FUNCTION_CSE7766_RX) != OFF_GPIO) {
      float count = Supla::GUI::counterCSE7766->getCounter();
-@@ -355,7 +355,7 @@ void handleOtherSave() {
-   }
- #endif
- 
--#ifdef SUPLA_CSE7766
-+#if defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
-   if (!WebServer->saveGPIO(INPUT_CSE7766_RX, FUNCTION_CSE7766_RX)) {
-     handleOther(6);
-     return;
-@@ -627,7 +627,7 @@ void handleImpulseCounterSaveSet() {
- }
- #endif
- 
--#if defined(SUPLA_HLW8012) || defined(SUPLA_CSE7766)
-+#if defined(SUPLA_HLW8012) || defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
- void handleCounterCalibrate(int save) {
-   float currentMultiplier = 0, voltageMultiplier = 0, powerMultiplier = 0;
-   String counter = WebServer->httpServer->arg(ARG_PARM_URL);
-@@ -643,7 +643,7 @@ void handleCounterCalibrate(int save) {
-     powerMultiplier = Supla::GUI::counterHLW8012->getPowerMultiplier();
-   }
- #endif
--#ifdef SUPLA_CSE7766
-+#if defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
-   if (counter == PATH_CSE7766 || counter == CSE7766_MULTIPLIER) {
-     currentMultiplier = Supla::GUI::counterCSE7766->getCurrentMultiplier();
-     voltageMultiplier = Supla::GUI::counterCSE7766->getVoltageMultiplier();
-@@ -672,11 +672,11 @@ void handleCounterCalibrate(int save) {
-     formHeader = F("HLW8012 Multipliers");
-   }
- #endif
--#ifdef SUPLA_CSE7766
-+#if defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
-   if (counter == PATH_CSE7766 || counter == CSE7766_MULTIPLIER) {
-     calibrationPath = PATH_CSE7766;
-     postPath = CSE7766_MULTIPLIER;
--    formHeader = F("CSE7766 Multipliers");
-+    formHeader = F("CSE7766/CSE7761/BL0930 Multipliers");
-   }
- #endif
- 
-@@ -718,7 +718,7 @@ void handleCounterCalibrateSave() {
-       Supla::GUI::counterHLW8012->setPowerMultiplier(powerMultiplier);
-     }
- #endif
--#ifdef SUPLA_CSE7766
-+#if defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
-     if (counter.equals(CSE7766_MULTIPLIER)) {
-       Supla::GUI::counterCSE7766->setCurrentMultiplier(currentMultiplier);
-       Supla::GUI::counterCSE7766->setVoltageMultiplier(voltageMultiplier);
-@@ -745,7 +745,7 @@ void handleCounterCalibrateSave() {
-     }
- #endif
- 
--#ifdef SUPLA_CSE7766
-+#if defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
-     if (counter.equals(PATH_CSE7766)) {
- #if defined(SUPLA_RELAY) || defined(SUPLA_ROLLERSHUTTER)
-       for (size_t i = 0; i < Supla::GUI::relay.size(); i++) {
 @@ -860,4 +860,4 @@ void changePZEMAddress(uint8_t address) {
      Serial.println(pzem.getAddress(), HEX);
    }
@@ -363,49 +254,6 @@ index d1c9c22e..abcf617b 100644
 -#endif
 \ No newline at end of file
 +#endif
-diff --git a/src/SuplaWebPageOther.h b/src/SuplaWebPageOther.h
-index f19af4da..81d59353 100644
---- a/src/SuplaWebPageOther.h
-+++ b/src/SuplaWebPageOther.h
-@@ -24,7 +24,8 @@
- #define GUI_SENSOR_OTHER
- #endif
- 
--#if defined(SUPLA_HLW8012) || defined(SUPLA_PZEM_V_3) || defined(SUPLA_PZEM_ADR) || defined(SUPLA_CSE7766) || defined(SUPLA_MODBUS_SDM) || \
-+#if defined(SUPLA_HLW8012) || defined(SUPLA_PZEM_V_3) || defined(SUPLA_PZEM_ADR) || defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || \
-+    defined(SUPLA_BL0930) || defined(SUPLA_MODBUS_SDM) || \
-     defined(SUPLA_MODBUS_SDM_ONE_PHASE) || defined(SUPLA_MODBUS_SDM_72_V2) || defined(SUPLA_INA219)
- #define GUI_OTHER_ENERGY
- #endif
-@@ -66,14 +67,14 @@ void handleImpulseCounterSaveSet();
- #define PATH_HLW8012                       "hlw8012"
- #endif
- 
--#ifdef SUPLA_CSE7766
-+#if defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
- #define INPUT_CSE7766_RX "isrx"
- 
- #define INPUT_COUNTER_CHANGE_VALUE_CSE7766 "iccvc"
- #define PATH_CSE7766                       "cse7766"
- #endif
- 
--#if defined(SUPLA_HLW8012) || defined(SUPLA_CSE7766)
-+#if defined(SUPLA_HLW8012) || defined(SUPLA_CSE7766) || defined(SUPLA_CSE7761) || defined(SUPLA_BL0930)
- #define PATH_CALIBRATE      "calibrate"
- #define INPUT_CALIB_POWER   "power"
- #define INPUT_CALIB_VOLTAGE "voltage"
-diff --git a/src/src/language/common.h b/src/src/language/common.h
-index 37dd9225..87f9bc24 100644
---- a/src/src/language/common.h
-+++ b/src/src/language/common.h
-@@ -44,6 +44,7 @@
- #define S_BH1750                         "BH1750"
- #define S_MS5611                         "MS5611"
- #define S_CSE7766                        "CSE7766"
-+#define S_CSE77XX_UART                   "CSE7766/CSE7761/BL0930"
- #define S_ADE7953                        "ADE7953"
- #define S_MAX44009                       "MAX44009"
- #define S_GPIO                           "GPIO"
 diff --git a/src/src/update/SuplaHTTPUpdateServer.h b/src/src/update/SuplaHTTPUpdateServer.h
 index 383a2ecf..9e1f38e4 100644
 --- a/src/src/update/SuplaHTTPUpdateServer.h
