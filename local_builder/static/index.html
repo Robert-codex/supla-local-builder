@@ -158,7 +158,6 @@
           </label>
           <div class="install-cta">
             <button id="downloadFirmwareButton" class="ghost" type="button">Pobierz firmware</button>
-            <button id="installFirmwareButton" class="ghost" type="button">Flashuj przez USB</button>
           </div>
           <div class="programmer-panel">
             <div class="programmer-head">
@@ -166,7 +165,7 @@
               <button id="detectProgrammerButton" class="ghost" type="button">Wykryj programator</button>
             </div>
             <p id="programmerStatus" class="install-note">
-              1. Kliknij `Wykryj programator`. 2. Wybierz port USB. 3. Kliknij `Flashuj przez USB`.
+              Kliknij `Wykryj programator`, aby sprawdzić porty USB widoczne dla przeglądarki lub lokalnego serwera.
             </p>
             <div id="programmerDetails" class="install-artifacts"></div>
           </div>
@@ -193,7 +192,7 @@
           <div class="install-steps">
             <strong>Jak zainstalować</strong>
             <ol>
-              <li>USB: kliknij `Wykryj programator`, wybierz port, potem kliknij `Flashuj przez USB`.</li>
+              <li>USB: użyj bezpośrednio przycisku Web Installer, gdy pojawi się po gotowym buildzie.</li>
               <li>OTA: skopiuj link powyżej i otwórz go na urządzeniu w tej samej sieci.</li>
               <li>Ręcznie: pobierz pliki i użyj `esptool.py`, jeśli nie chcesz flashować z przeglądarki.</li>
             </ol>

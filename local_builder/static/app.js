@@ -169,7 +169,6 @@ const els = {
   copyOtaButton: document.getElementById("copyOtaButton"),
   openOtaButton: document.getElementById("openOtaButton"),
   downloadFirmwareButton: document.getElementById("downloadFirmwareButton"),
-  installFirmwareButton: document.getElementById("installFirmwareButton"),
   detectProgrammerButton: document.getElementById("detectProgrammerButton"),
   programmerStatus: document.getElementById("programmerStatus"),
   programmerDetails: document.getElementById("programmerDetails"),
@@ -926,7 +925,7 @@ function renderProgrammerPanel(payload) {
 
   if (!ready && !state.serialPorts.length) {
     els.programmerStatus.textContent = supported
-      ? "Możesz już wykryć port USB. Gdy build będzie gotowy, kliknij „Flashuj przez USB”."
+      ? "Możesz już wykryć port USB. Gdy build będzie gotowy, użyj przycisku Web Installer."
       : `${supportReason} Kliknij „Wykryj programator”, aby sprawdzić lokalne porty serwera.`;
     els.programmerDetails.innerHTML = "";
     return;
@@ -934,7 +933,7 @@ function renderProgrammerPanel(payload) {
 
   if (!state.serialPorts.length) {
     els.programmerStatus.textContent = supported
-      ? "Kliknij „Wykryj programator”, wybierz port USB i dopiero potem kliknij „Flashuj przez USB”."
+      ? "Kliknij „Wykryj programator”, wybierz port USB i potem użyj przycisku Web Installer."
       : `${supportReason} Kliknij „Wykryj programator”, żeby sprawdzić, czy lokalny serwer widzi port USB.`;
     els.programmerDetails.innerHTML = "";
     return;
@@ -942,12 +941,12 @@ function renderProgrammerPanel(payload) {
 
   if (supported) {
     els.programmerStatus.textContent = ready
-      ? `Wykryto ${state.serialPorts.length} port(y). Możesz teraz kliknąć „Flashuj przez USB”.`
+      ? `Wykryto ${state.serialPorts.length} port(y). Możesz teraz użyć przycisku Web Installer.`
       : `Wykryto ${state.serialPorts.length} port(y). Port zostanie użyty, gdy build będzie gotowy do flashowania.`;
   } else {
     const sourceLabel = state.serialPortSource === "server" ? "przez lokalny serwer" : "lokalnie";
     els.programmerStatus.textContent = ready
-      ? `Wykryto ${state.serialPorts.length} port(y) ${sourceLabel}, ale „Flashuj przez USB” nadal wymaga Chrome/Edge na localhost albo HTTPS.`
+      ? `Wykryto ${state.serialPorts.length} port(y) ${sourceLabel}, ale Web Installer nadal wymaga Chrome/Edge na localhost albo HTTPS.`
       : `Wykryto ${state.serialPorts.length} port(y) ${sourceLabel}. Build możesz pobrać ręcznie albo uruchomić stronę na localhost/HTTPS do flashowania z przeglądarki.`;
   }
   els.programmerDetails.innerHTML = state.serialPorts
@@ -1052,32 +1051,14 @@ function renderWebInstallButton(payload) {
   els.webInstallWrap.appendChild(button);
   els.webInstallWrap.hidden = false;
   state.webInstallButton = button;
-  els.webInstallHint.textContent = "Przycisk Flashuj przez USB używa wybranego portu i wgrywa gotowy build bez ręcznego doboru offsetów.";
-}
-
-function launchWebInstaller() {
-  if (state.webInstallButton && webInstallComponentReady()) {
-    state.webInstallButton.click();
-    return;
-  }
-  if (state.installManifestUrl) {
-    window.open(state.installManifestUrl, "_blank", "noopener,noreferrer");
-    return;
-  }
-  if (els.otaUrl.value) {
-    window.open(els.otaUrl.value, "_blank", "noopener,noreferrer");
-  }
+  els.webInstallHint.textContent = "Kliknij bezpośrednio przycisk Web Installer obok, żeby przeglądarka zachowała uprawnienia do portu USB.";
 }
 
 function updateInstallButtons(payload) {
   const ready = Boolean(payload?.status === "ready");
   const downloadEnabled = ready && Boolean(state.preferredDownloadUrl);
-  const installEnabled = ready && Boolean(state.installManifestUrl || els.otaUrl.value);
   if (els.downloadFirmwareButton) {
     els.downloadFirmwareButton.disabled = !downloadEnabled;
-  }
-  if (els.installFirmwareButton) {
-    els.installFirmwareButton.disabled = !installEnabled;
   }
 }
 
@@ -1325,7 +1306,6 @@ async function bootstrap() {
       window.open(els.otaUrl.value, "_blank", "noopener,noreferrer");
     }
   });
-  els.installFirmwareButton?.addEventListener("click", launchWebInstaller);
   els.downloadFirmwareButton?.addEventListener("click", () => {
     if (state.preferredDownloadUrl) {
       window.open(state.preferredDownloadUrl, "_blank", "noopener,noreferrer");
