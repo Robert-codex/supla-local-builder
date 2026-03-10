@@ -94,6 +94,39 @@ const FEATURED_DEVICE_PRESETS = [
     selectedOptions: [],
     chips: ["ESP32-C6", "Zigbee"],
   },
+  {
+    id: "shelly-1",
+    name: "Shelly 1",
+    description: "Popularny switch na ESP8266/ESP8285 ze wsparciem dwóch przekaźników.",
+    templateName: "Shelly 1",
+    processor: "esp82xx",
+    env: "GUI_Generic_1MB",
+    hardwarePreset: "",
+    selectedOptions: ["SUPLA_RELAY", "SUPLA_BUTTON", "SUPLA_LED"],
+    chips: ["Shelly", "ESP8266"],
+  },
+  {
+    id: "sonoff-basic",
+    name: "Sonoff Basic R3",
+    description: "Podstawowy dwustanowy przekaźnik Sonoff Basic.",
+    templateName: "Sonoff Basic R3",
+    processor: "esp82xx",
+    env: "GUI_Generic_1MB",
+    hardwarePreset: "",
+    selectedOptions: ["SUPLA_RELAY", "SUPLA_BUTTON"],
+    chips: ["Sonoff", "ESP8266"],
+  },
+  {
+    id: "sonoff-pow",
+    name: "Sonoff Pow R2",
+    description: "Konfiguracja z wbudowanym licznikiem energii CSE7766/CSE7761.",
+    templateName: "Sonoff Pow R2",
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    hardwarePreset: "",
+    selectedOptions: ["SUPLA_RELAY", "SUPLA_BUTTON", "SUPLA_CSE7766"],
+    chips: ["Sonoff", "CSE7766"],
+  },
 ];
 
 const els = {
@@ -287,7 +320,8 @@ function applyDevicePreset(preset) {
     els.meterSelPin.value = "";
   }
   if (preset.selectedOptions?.length) {
-    state.selected = new Set(preset.selectedOptions);
+    const base = state.config.defaults.selected_options || [];
+    state.selected = new Set([...base, ...preset.selectedOptions]);
   }
   normalizeSelection();
   renderAll();
