@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import ssl
 import subprocess
 import threading
 import time
@@ -18,6 +19,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+
+try:
+    from serial.tools import list_ports as serial_list_ports
+except ImportError:
+    serial_list_ports = None
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 GUI_GENERIC_DIR = ROOT_DIR / "external" / "GUI-Generic"
@@ -71,6 +77,87 @@ def normalize_public_url(value: str) -> str:
     if not value:
         return ""
     return value.rstrip("/") + "/"
+
+
+def make_device_basename(custom_name: str, template_name: str, fallback: str) -> str:
+    raw = (custom_name or template_name or fallback).strip()
+    tokens = re.findall(r"[A-Za-z0-9]+", raw)
+    if not tokens:
+        return fallback
+    first = tokens[0].lower()
+    rest = "".join(token[:1].upper() + token[1:] for token in tokens[1:])
+    return f"{first}{rest}"
+
+
+def artifact_filename(base_name: str, kind: str, source: Path) -> str:
+    if kind == "bin":
+        return f"{base_name}.bin"
+    if kind == "factory":
+        return f"{base_name}.factory.bin"
+    if kind == "gz":
+        return f"{base_name}.bin.gz"
+    if kind == "bootloader":
+        return f"{base_name}.bootloader.bin"
+    if kind == "partitions":
+        return f"{base_name}.partitions.bin"
+    if kind == "boot_app0":
+        return f"{base_name}.boot_app0.bin"
+    return f"{base_name}.{source.name}"
+
+
+def list_serial_ports() -> list[dict[str, str]]:
+    ports: list[dict[str, str]] = []
+    seen_paths: set[str] = set()
+    by_id_labels: dict[str, str] = {}
+
+    by_id_dir = Path("/dev/serial/by-id")
+    if by_id_dir.exists():
+        for entry in sorted(by_id_dir.iterdir(), key=lambda item: item.name):
+            try:
+                target = str(entry.resolve())
+            except OSError:
+                continue
+            by_id_labels[target] = entry.name
+
+    if serial_list_ports is not None:
+        for port in sorted(serial_list_ports.comports(), key=lambda item: item.device):
+            path = str(port.device)
+            if not path or path in seen_paths:
+                continue
+            seen_paths.add(path)
+            label_parts = [path]
+            if port.description and port.description != "n/a":
+                label_parts.append(port.description)
+            by_id = by_id_labels.get(path)
+            if by_id:
+                label_parts.append(by_id)
+            ports.append(
+                {
+                    "path": path,
+                    "label": " | ".join(label_parts),
+                    "source": "pyserial",
+                }
+            )
+
+    for pattern in ("/dev/ttyUSB*", "/dev/ttyACM*", "/dev/cu.usb*", "/dev/tty.usb*"):
+        for entry in sorted(Path("/").glob(pattern.lstrip("/")), key=lambda item: str(item)):
+            path = str(entry)
+            if path in seen_paths:
+                continue
+            seen_paths.add(path)
+            label = path
+            by_id = by_id_labels.get(path)
+            if by_id:
+                label = f"{path} | {by_id}"
+            ports.append(
+                {
+                    "path": path,
+                    "label": label,
+                    "source": "filesystem",
+                }
+            )
+
+    return ports
 
 
 def load_json(path: Path) -> Any:
@@ -349,11 +436,22 @@ class BuildManager:
                 error=payload.get("error", ""),
                 platformio_cmd=payload.get("platformio_cmd", ""),
             )
+            if metadata.status in {"queued", "building"}:
+                metadata.status = "failed"
+                if not metadata.error:
+                    metadata.error = "Build został przerwany albo serwer został zrestartowany przed zakończeniem kompilacji."
+                self._persist_best_effort(metadata)
             self.jobs[metadata.hash] = metadata
 
     def _persist(self, metadata: BuildMetadata) -> None:
         metadata.updated_at = time.time()
         save_json(self._metadata_path(metadata.hash), metadata.to_dict())
+
+    def _persist_best_effort(self, metadata: BuildMetadata) -> None:
+        try:
+            self._persist(metadata)
+        except OSError:
+            return
 
     def list_builds(self) -> list[dict[str, Any]]:
         with self.lock:
@@ -365,12 +463,17 @@ class BuildManager:
             return self.jobs.get(build_hash)
 
     def ensure_flash_parts(self, metadata: BuildMetadata) -> list[dict[str, str]]:
-        if metadata.flash_parts or metadata.status != "ready":
+        if metadata.status != "ready":
             return metadata.flash_parts
 
         request = BuildRequest.from_payload(metadata.request)
         request.hash = metadata.hash
-        flash_parts = self._build_flash_parts(request, metadata.artifact_files)
+        artifact_files = dict(metadata.artifact_files)
+        refreshed_files = self._refresh_artifact_files(request, artifact_files)
+        if refreshed_files:
+            artifact_files = refreshed_files
+
+        flash_parts = self._build_flash_parts(request, artifact_files)
         if not flash_parts:
             return []
 
@@ -378,11 +481,37 @@ class BuildManager:
             current = self.jobs.get(metadata.hash)
             if current is None:
                 return flash_parts
+            current.artifact_files = artifact_files
             current.flash_parts = flash_parts
             if not current.chip_family:
                 current.chip_family = self._chip_family_for_env(request.env)
-            self._persist(current)
+            self._persist_best_effort(current)
             return current.flash_parts
+
+    def _refresh_artifact_files(self, request: BuildRequest, artifact_files: dict[str, str]) -> dict[str, str]:
+        work_project = self._work_project_dir(request.hash)
+        if not work_project.exists():
+            return artifact_files
+
+        available_artifacts = self._collect_artifacts(request, work_project)
+        if not available_artifacts:
+            return artifact_files
+
+        artifact_dir = self._artifacts_dir(request.hash)
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        base_name = make_device_basename(request.custom_name, request.template_name, request.hash)
+
+        updated = dict(artifact_files)
+        for kind, source in available_artifacts.items():
+            if kind in updated:
+                continue
+            target = artifact_dir / artifact_filename(base_name, kind, source)
+            try:
+                shutil.copy2(source, target)
+                updated[kind] = target.name
+            except OSError:
+                updated[kind] = source.name
+        return updated
 
     def submit(self, request: BuildRequest) -> BuildMetadata:
         with self.lock:
@@ -428,11 +557,30 @@ class BuildManager:
         metadata = self.get(build_hash)
         if metadata is None or metadata.status != "ready":
             return None
-        filename = metadata.artifact_files.get(requested_type)
-        if not filename:
+        aliases = {
+            "bootloader.bin": "bootloader",
+            "partitions.bin": "partitions",
+            "boot_app0.bin": "boot_app0",
+        }
+        lookup_type = aliases.get(requested_type, requested_type)
+        if requested_type == "factory" and "factory" not in metadata.artifact_files:
+            lookup_type = "bin"
+        elif requested_type == "bin" and "bin" not in metadata.artifact_files and "factory" in metadata.artifact_files:
+            lookup_type = "factory"
+
+        filename = metadata.artifact_files.get(lookup_type)
+        if filename:
+            path = self._artifacts_dir(build_hash) / filename
+            if path.exists():
+                return path
+
+        request = BuildRequest.from_payload(metadata.request)
+        request.hash = build_hash
+        work_project = self._work_project_dir(build_hash)
+        if not work_project.exists():
             return None
-        path = self._artifacts_dir(build_hash) / filename
-        return path if path.exists() else None
+        artifacts = self._collect_artifacts(request, work_project)
+        return artifacts.get(requested_type) or artifacts.get(lookup_type)
 
     def _run_build(self, request: BuildRequest) -> None:
         with self.lock:
@@ -486,8 +634,9 @@ class BuildManager:
             artifact_dir = self._artifacts_dir(request.hash)
             artifact_dir.mkdir(parents=True, exist_ok=True)
             copied_files: dict[str, str] = {}
+            base_name = make_device_basename(request.custom_name, request.template_name, request.hash)
             for kind, source in artifacts.items():
-                target = artifact_dir / source.name
+                target = artifact_dir / artifact_filename(base_name, kind, source)
                 shutil.copy2(source, target)
                 copied_files[kind] = target.name
 
@@ -588,8 +737,13 @@ class BuildManager:
     def _build_flash_parts(self, request: BuildRequest, artifact_files: dict[str, str]) -> list[dict[str, str]]:
         parts: list[dict[str, str]] = []
         has_application = False
+        aliases = {
+            "bootloader.bin": "bootloader",
+            "partitions.bin": "partitions",
+            "boot_app0.bin": "boot_app0",
+        }
         for name, offset in self._flash_manifest_parts(request):
-            filename = artifact_files.get(name)
+            filename = artifact_files.get(name) or artifact_files.get(aliases.get(name, ""))
             if name == "factory" and not filename:
                 filename = artifact_files.get("bin")
             elif name == "bin" and not filename:
@@ -685,8 +839,17 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
             json_response(self, HTTPStatus.OK, {"items": self.app.manager.list_builds()})
             return
 
+        if parsed.path == "/api/serial-ports":
+            json_response(self, HTTPStatus.OK, {"items": list_serial_ports()})
+            return
+
         if parsed.path.startswith("/api/builds/") and parsed.path.endswith("/manifest"):
             build_hash = parsed.path.strip("/").split("/")[2]
+            metadata = self.app.manager.get(build_hash)
+            if metadata is None:
+                json_response(self, HTTPStatus.NOT_FOUND, {"error": "Nie znaleziono builda"})
+                return
+            self.app.manager.ensure_flash_parts(metadata)
             metadata = self.app.manager.get(build_hash)
             if metadata is None:
                 json_response(self, HTTPStatus.NOT_FOUND, {"error": "Nie znaleziono builda"})
@@ -706,6 +869,7 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
                 return
             payload = metadata.to_dict()
             payload["artifact_urls"] = self.app.artifact_urls(build_hash, metadata.artifact_files)
+            payload["compatibility_url"] = self.app.compatibility_url(build_hash)
             if metadata.log_path and Path(metadata.log_path).exists():
                 payload["log_tail"] = self.app.log_tail(Path(metadata.log_path))
             json_response(self, HTTPStatus.OK, payload)
@@ -723,16 +887,16 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
-        if parsed.path != "/api/build":
-            json_response(self, HTTPStatus.NOT_FOUND, {"error": "Nieznany endpoint"})
-            return
-
         content_length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(content_length)
         try:
             payload = json.loads(raw.decode("utf-8"))
         except json.JSONDecodeError:
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": "Niepoprawny JSON"})
+            return
+
+        if parsed.path != "/api/build":
+            json_response(self, HTTPStatus.NOT_FOUND, {"error": "Nieznany endpoint"})
             return
 
         request = BuildRequest.from_payload(payload)
@@ -789,6 +953,9 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", guess_mime(path))
         self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         if path.suffix in {".bin", ".gz"}:
             self.send_header("Content-Disposition", f'attachment; filename="{path.name}"')
         self.end_headers()
@@ -806,19 +973,62 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
         return
 
 
+class RedirectHTTPHandler(BaseHTTPRequestHandler):
+    server_version = "LocalSuplaBuilderRedirect/1.0"
+
+    @property
+    def app(self) -> "BuilderApplication":
+        return self.server.app  # type: ignore[attr-defined]
+
+    def do_GET(self) -> None:  # noqa: N802
+        self.redirect()
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        self.redirect(send_body=False)
+
+    def do_POST(self) -> None:  # noqa: N802
+        self.redirect()
+
+    def redirect(self, send_body: bool = True) -> None:
+        location = self.app.redirect_target(self.path)
+        body = f"Redirecting to {location}\n".encode("utf-8")
+        self.send_response(HTTPStatus.MOVED_PERMANENTLY)
+        self.send_header("Location", location)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if send_body:
+            self.wfile.write(body)
+
+    def log_message(self, fmt: str, *args: Any) -> None:
+        return
+
+
 class BuilderApplication:
-    def __init__(self, host: str, port: int, public_url: str) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        public_url: str,
+        tls_cert: str = "",
+        tls_key: str = "",
+        http_redirect_port: int = 0,
+    ) -> None:
         ensure_dirs()
         self.catalog = BuilderCatalog(GUI_GENERIC_DIR)
         self.manager = BuildManager(self.catalog)
         self.host = host
         self.port = port
-        self.public_url = normalize_public_url(public_url) or f"http://{host}:{port}/"
+        self.tls_cert = tls_cert.strip()
+        self.tls_key = tls_key.strip()
+        self.http_redirect_port = http_redirect_port
+        default_scheme = "https" if self.tls_cert and self.tls_key else "http"
+        self.public_url = normalize_public_url(public_url) or f"{default_scheme}://{host}:{port}/"
 
     def artifact_urls(self, build_hash: str, artifact_files: dict[str, str]) -> dict[str, str]:
         result: dict[str, str] = {}
-        for kind, filename in artifact_files.items():
-            result[kind] = f"{self.public_url}artifacts/{build_hash}/{filename}"
+        for kind in artifact_files:
+            result[kind] = f"{self.compatibility_url(build_hash)}&type={kind}"
         return result
 
     def compatibility_url(self, build_hash: str) -> str:
@@ -838,7 +1048,7 @@ class BuilderApplication:
                 continue
             parts.append(
                 {
-                    "path": f"{self.public_url}artifacts/{build_hash}/{filename}",
+                    "path": f"{self.compatibility_url(build_hash)}&type={part.get('artifact', '')}",
                     "offset": part.get("offset", "0x0"),
                 }
             )
@@ -865,9 +1075,30 @@ class BuilderApplication:
         content = path.read_text(encoding="utf-8", errors="replace").splitlines()
         return "\n".join(content[-lines:])
 
+    def redirect_target(self, path: str) -> str:
+        clean_path = path or "/"
+        if not clean_path.startswith("/"):
+            clean_path = f"/{clean_path}"
+        return f"{self.public_url.rstrip('/')}{clean_path}"
+
+    def _serve_redirects(self) -> None:
+        redirect_httpd = ThreadingHTTPServer((self.host, self.http_redirect_port), RedirectHTTPHandler)
+        redirect_httpd.app = self  # type: ignore[attr-defined]
+        redirect_httpd.serve_forever()
+
     def run(self) -> None:
         httpd = ThreadingHTTPServer((self.host, self.port), BuilderHTTPHandler)
         httpd.app = self  # type: ignore[attr-defined]
+        if self.tls_cert or self.tls_key:
+            if not self.tls_cert or not self.tls_key:
+                raise ValueError("TLS wymaga podania zarówno certyfikatu, jak i klucza prywatnego.")
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(certfile=self.tls_cert, keyfile=self.tls_key)
+            httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+        if self.http_redirect_port > 0 and self.tls_cert and self.tls_key:
+            redirect_thread = threading.Thread(target=self._serve_redirects, daemon=True)
+            redirect_thread.start()
+            print(f"http redirect listening on http://{self.host}:{self.http_redirect_port}/ -> {self.public_url}")
         print(f"supla-local-builder listening on {self.public_url}")
         httpd.serve_forever()
 
@@ -881,9 +1112,32 @@ def main() -> None:
         default=os.environ.get("LOCAL_BUILDER_PUBLIC_URL", ""),
         help="Publiczny adres buildera używany do generowanych linków OTA",
     )
+    parser.add_argument(
+        "--tls-cert",
+        default=os.environ.get("LOCAL_BUILDER_TLS_CERT", ""),
+        help="Ścieżka do certyfikatu TLS PEM dla HTTPS",
+    )
+    parser.add_argument(
+        "--tls-key",
+        default=os.environ.get("LOCAL_BUILDER_TLS_KEY", ""),
+        help="Ścieżka do klucza prywatnego TLS PEM dla HTTPS",
+    )
+    parser.add_argument(
+        "--http-redirect-port",
+        type=int,
+        default=int(os.environ.get("LOCAL_BUILDER_HTTP_REDIRECT_PORT", "0") or "0"),
+        help="Opcjonalny port HTTP zwracający przekierowanie 301 do HTTPS",
+    )
     args = parser.parse_args()
 
-    app = BuilderApplication(args.host, args.port, args.public_url)
+    app = BuilderApplication(
+        args.host,
+        args.port,
+        args.public_url,
+        args.tls_cert,
+        args.tls_key,
+        args.http_redirect_port,
+    )
     app.run()
 
 

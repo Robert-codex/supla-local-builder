@@ -2,10 +2,15 @@ const state = {
   config: null,
   selected: new Set(),
   currentBuildHash: "",
+  lastBuildPayload: null,
   pollTimer: null,
   envFamilies: [],
   preferredDownloadUrl: "",
   webInstallButton: null,
+  installManifestUrl: "",
+  serialPorts: [],
+  serialPortSource: "",
+  serialRequestPending: false,
 };
 
 const DUAL_R3_PM_TEMPLATE_NAME = "Sonoff Dual R3 Power Monitoring";
@@ -165,6 +170,9 @@ const els = {
   openOtaButton: document.getElementById("openOtaButton"),
   downloadFirmwareButton: document.getElementById("downloadFirmwareButton"),
   installFirmwareButton: document.getElementById("installFirmwareButton"),
+  detectProgrammerButton: document.getElementById("detectProgrammerButton"),
+  programmerStatus: document.getElementById("programmerStatus"),
+  programmerDetails: document.getElementById("programmerDetails"),
   webInstallWrap: document.getElementById("webInstallWrap"),
   webInstallHint: document.getElementById("webInstallHint"),
   installArtifacts: document.getElementById("installArtifacts"),
@@ -682,6 +690,8 @@ function applyHardwarePresetSelection() {
 
 function setDefaults() {
   state.selected = new Set(state.config.defaults.selected_options);
+  state.currentBuildHash = "";
+  state.lastBuildPayload = null;
   els.languageSelect.value = state.config.defaults.language;
   els.processorSelect.value = detectEnvFamily(state.config.defaults.env);
   renderEnvSelect(state.config.defaults.env);
@@ -702,7 +712,7 @@ function setDefaults() {
   els.templateJson.value = "";
   normalizeSelection();
   renderAll();
-  renderInstallPanel(null);
+  renderStatus(null);
 }
 
 function buildOptionMeta(option) {
@@ -818,7 +828,7 @@ function renderHistory(items = []) {
   }
 
   els.buildHistory.innerHTML = items.map((item) => `
-    <article class="history-item">
+    <article class="history-item" data-hash="${escapeHtml(item.hash)}" role="button" tabindex="0">
       <strong>${escapeHtml(item.hash)}</strong>
       <small>${escapeHtml(item.status)} | ${escapeHtml(item.updated_at_iso || "")}</small>
       <small>${escapeHtml(item.request?.env || "")} | ${escapeHtml(item.request?.build_version || "")}</small>
@@ -827,6 +837,7 @@ function renderHistory(items = []) {
 }
 
 function renderStatus(payload) {
+  state.lastBuildPayload = payload || null;
   els.buildStatus.className = `build-status ${payload?.status || "empty"}`;
   if (!payload) {
     els.buildStatus.textContent = "Nie uruchomiono jeszcze builda.";
@@ -868,8 +879,150 @@ function currentInstallManifestUrl(payload) {
   return `${state.config.public_url}api/builds/${payload.hash}/manifest`;
 }
 
+function webInstallComponentReady() {
+  return typeof window.customElements !== "undefined" && Boolean(window.customElements.get("esp-web-install-button"));
+}
+
+function webInstallSupportReason() {
+  if (!("serial" in navigator)) {
+    return "Ta przeglądarka nie obsługuje Web Serial. Użyj Chrome albo Edge.";
+  }
+  if (window.isSecureContext || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    return "";
+  }
+  return `Ta strona działa pod ${window.location.origin}. Web Serial w Chrome wymaga HTTPS albo http://localhost.`;
+}
+
 function webInstallSupported() {
-  return "serial" in navigator && (window.isSecureContext || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+  return !webInstallSupportReason();
+}
+
+function serialPortLabel(port, index) {
+  if (port && typeof port.path === "string") {
+    return port.label || port.path;
+  }
+  const info = typeof port.getInfo === "function" ? port.getInfo() : {};
+  const usbVendorId = info.usbVendorId ? `VID:${info.usbVendorId.toString(16).padStart(4, "0")}` : "";
+  const usbProductId = info.usbProductId ? `PID:${info.usbProductId.toString(16).padStart(4, "0")}` : "";
+  const suffix = [usbVendorId, usbProductId].filter(Boolean).join(" ");
+  return suffix ? `Port ${index + 1} (${suffix})` : `Port ${index + 1}`;
+}
+
+function renderProgrammerPanel(payload) {
+  const ready = Boolean(payload?.status === "ready");
+  const supportReason = webInstallSupportReason();
+  const supported = !supportReason;
+
+  if (els.detectProgrammerButton) {
+    els.detectProgrammerButton.disabled = state.serialRequestPending;
+  }
+
+  if (state.serialRequestPending) {
+    els.programmerStatus.textContent = supported
+      ? "Czekam na wybór portu USB w oknie przeglądarki."
+      : "Sprawdzam porty USB widoczne dla lokalnego serwera.";
+    return;
+  }
+
+  if (!ready && !state.serialPorts.length) {
+    els.programmerStatus.textContent = supported
+      ? "Możesz już wykryć port USB. Gdy build będzie gotowy, kliknij „Flashuj przez USB”."
+      : `${supportReason} Kliknij „Wykryj programator”, aby sprawdzić lokalne porty serwera.`;
+    els.programmerDetails.innerHTML = "";
+    return;
+  }
+
+  if (!state.serialPorts.length) {
+    els.programmerStatus.textContent = supported
+      ? "Kliknij „Wykryj programator”, wybierz port USB i dopiero potem kliknij „Flashuj przez USB”."
+      : `${supportReason} Kliknij „Wykryj programator”, żeby sprawdzić, czy lokalny serwer widzi port USB.`;
+    els.programmerDetails.innerHTML = "";
+    return;
+  }
+
+  if (supported) {
+    els.programmerStatus.textContent = ready
+      ? `Wykryto ${state.serialPorts.length} port(y). Możesz teraz kliknąć „Flashuj przez USB”.`
+      : `Wykryto ${state.serialPorts.length} port(y). Port zostanie użyty, gdy build będzie gotowy do flashowania.`;
+  } else {
+    const sourceLabel = state.serialPortSource === "server" ? "przez lokalny serwer" : "lokalnie";
+    els.programmerStatus.textContent = ready
+      ? `Wykryto ${state.serialPorts.length} port(y) ${sourceLabel}, ale „Flashuj przez USB” nadal wymaga Chrome/Edge na localhost albo HTTPS.`
+      : `Wykryto ${state.serialPorts.length} port(y) ${sourceLabel}. Build możesz pobrać ręcznie albo uruchomić stronę na localhost/HTTPS do flashowania z przeglądarki.`;
+  }
+  els.programmerDetails.innerHTML = state.serialPorts
+    .map((port, index) => `<span>${escapeHtml(serialPortLabel(port, index))}</span>`)
+    .join("");
+}
+
+async function fetchServerSerialPorts() {
+  const response = await fetch("/api/serial-ports");
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  const payload = await response.json();
+  return Array.isArray(payload.items) ? payload.items : [];
+}
+
+async function refreshSerialPorts({ requestAccess = false } = {}) {
+  if (!webInstallSupported()) {
+    if (!requestAccess) {
+      renderProgrammerPanel(state.lastBuildPayload);
+      return state.serialPorts;
+    }
+    state.serialRequestPending = true;
+    renderProgrammerPanel(state.lastBuildPayload);
+    try {
+      state.serialPorts = await fetchServerSerialPorts();
+      state.serialPortSource = "server";
+    } catch (error) {
+      state.serialPorts = [];
+      state.serialPortSource = "";
+      els.programmerStatus.textContent = `Nie udało się wykryć portów na serwerze: ${error.message || String(error)}`;
+    }
+    state.serialRequestPending = false;
+    renderProgrammerPanel(state.lastBuildPayload);
+    return state.serialPorts;
+  }
+
+  let grantedPort = null;
+  if (requestAccess) {
+    state.serialRequestPending = true;
+    renderProgrammerPanel(state.lastBuildPayload);
+    try {
+      grantedPort = await navigator.serial.requestPort();
+    } catch (error) {
+      if (error?.name !== "NotFoundError") {
+        els.programmerStatus.textContent = `Nie udało się uzyskać dostępu do portu: ${error.message || String(error)}`;
+      }
+      state.serialRequestPending = false;
+      renderProgrammerPanel(state.lastBuildPayload);
+      return state.serialPorts;
+    }
+    state.serialRequestPending = false;
+  }
+
+  try {
+    state.serialPorts = await navigator.serial.getPorts();
+    state.serialPortSource = "web";
+  } catch (error) {
+    if (grantedPort) {
+      state.serialPorts = [grantedPort];
+      state.serialPortSource = "web";
+    } else {
+      els.programmerStatus.textContent = `Nie udało się odczytać portów: ${error.message || String(error)}`;
+      state.serialPorts = [];
+      state.serialPortSource = "";
+    }
+  }
+
+  if (grantedPort && !state.serialPorts.includes(grantedPort)) {
+    state.serialPorts = [...state.serialPorts, grantedPort];
+    state.serialPortSource = "web";
+  }
+
+  renderProgrammerPanel(state.lastBuildPayload);
+  return state.serialPorts;
 }
 
 function renderWebInstallButton(payload) {
@@ -887,6 +1040,11 @@ function renderWebInstallButton(payload) {
     return;
   }
 
+  if (!webInstallComponentReady()) {
+    els.webInstallHint.textContent = "Komponent Web Installera nie załadował się. Odśwież stronę albo sprawdź, czy przeglądarka ma dostęp do skryptu esp-web-tools.";
+    return;
+  }
+
   const manifestUrl = currentInstallManifestUrl(payload);
   const button = document.createElement("esp-web-install-button");
   button.setAttribute("manifest", manifestUrl);
@@ -894,19 +1052,44 @@ function renderWebInstallButton(payload) {
   els.webInstallWrap.appendChild(button);
   els.webInstallWrap.hidden = false;
   state.webInstallButton = button;
-  els.webInstallHint.textContent = "Przycisk Zainstaluj wykrywa port szeregowy i wgrywa gotowy build bez ręcznego doboru offsetów.";
+  els.webInstallHint.textContent = "Przycisk Flashuj przez USB używa wybranego portu i wgrywa gotowy build bez ręcznego doboru offsetów.";
+}
+
+function launchWebInstaller() {
+  if (state.webInstallButton && webInstallComponentReady()) {
+    state.webInstallButton.click();
+    return;
+  }
+  if (state.installManifestUrl) {
+    window.open(state.installManifestUrl, "_blank", "noopener,noreferrer");
+    return;
+  }
+  if (els.otaUrl.value) {
+    window.open(els.otaUrl.value, "_blank", "noopener,noreferrer");
+  }
 }
 
 function updateInstallButtons(payload) {
   const ready = Boolean(payload?.status === "ready");
   const downloadEnabled = ready && Boolean(state.preferredDownloadUrl);
-  const installEnabled = ready && Boolean(els.otaUrl.value);
+  const installEnabled = ready && Boolean(state.installManifestUrl || els.otaUrl.value);
   if (els.downloadFirmwareButton) {
     els.downloadFirmwareButton.disabled = !downloadEnabled;
   }
   if (els.installFirmwareButton) {
     els.installFirmwareButton.disabled = !installEnabled;
   }
+}
+
+function watchWebInstallComponent() {
+  if (typeof window.customElements === "undefined") {
+    return;
+  }
+  window.customElements.whenDefined("esp-web-install-button").then(() => {
+    if (state.lastBuildPayload) {
+      renderInstallPanel(state.lastBuildPayload);
+    }
+  }).catch(() => {});
 }
 
 function renderInstallPanel(payload) {
@@ -918,6 +1101,8 @@ function renderInstallPanel(payload) {
     state.preferredDownloadUrl = "";
     renderWebInstallButton(null);
     updateInstallButtons(null);
+    state.installManifestUrl = "";
+    renderProgrammerPanel(null);
     return;
   }
 
@@ -938,8 +1123,10 @@ function renderInstallPanel(payload) {
     `<a href="${encodeURI(url)}" target="_blank" rel="noreferrer">Pobierz ${escapeHtml(kind)}</a>`
   )).join("");
   state.preferredDownloadUrl = links.factory || links.bin || links.gz || Object.values(links)[0] || "";
+  state.installManifestUrl = currentInstallManifestUrl(payload);
   renderWebInstallButton(payload);
   updateInstallButtons(payload);
+  renderProgrammerPanel(payload);
 }
 
 function selectedTemplateJson() {
@@ -959,16 +1146,33 @@ function selectedTemplateJson() {
 }
 
 async function fetchBuildHistory() {
-  const response = await fetch("/api/builds");
+  try {
+    const response = await fetch("/api/builds");
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const payload = await response.json();
+    const items = payload.items || [];
+    renderHistory(items);
+  } catch (error) {
+    renderHistory([]);
+    els.buildHistory.innerHTML = `<div class="history-item"><small>Nie udało się pobrać historii buildów: ${escapeHtml(error.message || String(error))}</small></div>`;
+  }
+}
+
+async function fetchBuildDetails(hash) {
+  const response = await fetch(`/api/builds/${hash}`);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
   const payload = await response.json();
-  renderHistory(payload.items || []);
+  renderStatus(payload);
+  state.currentBuildHash = hash;
+  return payload;
 }
 
 async function pollBuild(hash) {
-  const response = await fetch(`/api/builds/${hash}`);
-  const payload = await response.json();
-  payload.compatibility_url = `${state.config.public_url}?firmware=${hash}`;
-  renderStatus(payload);
+  const payload = await fetchBuildDetails(hash);
   if (payload.status === "queued" || payload.status === "building") {
     state.pollTimer = setTimeout(() => pollBuild(hash), 2500);
   } else {
@@ -1050,6 +1254,12 @@ async function bootstrap() {
   renderProcessorSelect();
   renderEnvSelect(state.config.defaults.env);
   renderTemplateSelect();
+  watchWebInstallComponent();
+  try {
+    await refreshSerialPorts();
+  } catch (error) {
+    els.programmerStatus.textContent = `Nie udało się przygotować wykrywania portów: ${error.message || String(error)}`;
+  }
 
   setDefaults();
   await fetchBuildHistory();
@@ -1115,15 +1325,7 @@ async function bootstrap() {
       window.open(els.otaUrl.value, "_blank", "noopener,noreferrer");
     }
   });
-  els.installFirmwareButton?.addEventListener("click", () => {
-    if (state.webInstallButton) {
-      state.webInstallButton.click();
-      return;
-    }
-    if (els.otaUrl.value) {
-      window.open(els.otaUrl.value, "_blank", "noopener,noreferrer");
-    }
-  });
+  els.installFirmwareButton?.addEventListener("click", launchWebInstaller);
   els.downloadFirmwareButton?.addEventListener("click", () => {
     if (state.preferredDownloadUrl) {
       window.open(state.preferredDownloadUrl, "_blank", "noopener,noreferrer");
@@ -1132,7 +1334,33 @@ async function bootstrap() {
   els.buildButton.addEventListener("click", triggerBuild);
   els.refreshBuilds.addEventListener("click", fetchBuildHistory);
   els.resetDefaults.addEventListener("click", setDefaults);
+  els.buildHistory.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-hash]");
+    if (!card) {
+      return;
+    }
+    fetchBuildDetails(card.dataset.hash).catch((error) => {
+      els.buildStatus.textContent = `Nie udało się wczytać builda: ${error.message || String(error)}`;
+    });
+  });
+
+  if ("serial" in navigator && typeof navigator.serial.addEventListener === "function") {
+    navigator.serial.addEventListener("connect", () => {
+      refreshSerialPorts();
+    });
+    navigator.serial.addEventListener("disconnect", () => {
+      refreshSerialPorts();
+    });
+  }
 }
+
+els.detectProgrammerButton?.addEventListener("click", async () => {
+  try {
+    await refreshSerialPorts({ requestAccess: true });
+  } catch (error) {
+    els.programmerStatus.textContent = `Nie udało się wykryć portu: ${error.message || String(error)}`;
+  }
+});
 
 bootstrap().catch((error) => {
   renderStatus({

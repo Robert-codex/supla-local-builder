@@ -157,8 +157,18 @@
             <input id="otaUrl" type="text" readonly placeholder="pojawi się po buildzie">
           </label>
           <div class="install-cta">
-            <button id="downloadFirmwareButton" class="ghost" type="button">Zapisz na dysku</button>
-            <button id="installFirmwareButton" class="ghost" type="button">Zainstaluj</button>
+            <button id="downloadFirmwareButton" class="ghost" type="button">Pobierz firmware</button>
+            <button id="installFirmwareButton" class="ghost" type="button">Flashuj przez USB</button>
+          </div>
+          <div class="programmer-panel">
+            <div class="programmer-head">
+              <strong>Programator / port USB</strong>
+              <button id="detectProgrammerButton" class="ghost" type="button">Wykryj programator</button>
+            </div>
+            <p id="programmerStatus" class="install-note">
+              1. Kliknij `Wykryj programator`. 2. Wybierz port USB. 3. Kliknij `Flashuj przez USB`.
+            </p>
+            <div id="programmerDetails" class="install-artifacts"></div>
           </div>
           <div class="install-actions">
             <div id="webInstallWrap" class="web-install-wrap"></div>
@@ -183,9 +193,9 @@
           <div class="install-steps">
             <strong>Jak zainstalować</strong>
             <ol>
-              <li>OTA: skopiuj link powyżej i otwórz go na urządzeniu podłączonym do tej samej sieci, aby wgrać firmware bez kabli.</li>
-              <li>Flash lokalny: pobierz odpowiednie bin/factory, podłącz urządzenie po USB i użyj `esptool.py`/`esp-web-tools` z podanymi offsetami.</li>
-              <li>Dla ESP8266/ESP8285 zalecany jest bin, dla ESP32 używaj factory przy pierwszym flashu.</li>
+              <li>USB: kliknij `Wykryj programator`, wybierz port, potem kliknij `Flashuj przez USB`.</li>
+              <li>OTA: skopiuj link powyżej i otwórz go na urządzeniu w tej samej sieci.</li>
+              <li>Ręcznie: pobierz pliki i użyj `esptool.py`, jeśli nie chcesz flashować z przeglądarki.</li>
             </ol>
           </div>
           <div class="install-tips">
@@ -198,8 +208,7 @@
             Dla ESP8266/ESP8285 pobierz zwykle <code>bin</code>. Dla ESP32 korzystaj z <code>factory</code>, jeśli chcesz pierwszy flash przez UART.
           </p>
         </section>
-      </section>
-    </main>
+      </main>
 
     <section class="panel devices-panel">
       <div class="panel-head">
