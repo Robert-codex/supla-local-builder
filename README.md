@@ -8,8 +8,20 @@ Initial repository setup.
 - `tests/` automated tests
 - `docs/` project documentation
 - `scripts/` development and maintenance scripts
-- `external/GUI-Generic/` upstream GUI Generic firmware source
+- `external/GUI-Generic/` upstream GUI Generic firmware source as a git submodule
 - `local_builder/` local WWW builder for generating firmware from `builder.json`
+- `patches/gui-generic/` local patch set applied on top of upstream `GUI-Generic`
+
+## GUI-Generic Submodule
+
+Przy świeżym klonie uruchom:
+
+```bash
+git submodule update --init --recursive
+./scripts/apply_gui_generic_patches.sh
+```
+
+To pobiera upstream `GUI-Generic` i nakłada lokalne zmiany dla MQTT, Zigbee gateway i lokalnego buildera OTA.
 
 ## Local Builder
 

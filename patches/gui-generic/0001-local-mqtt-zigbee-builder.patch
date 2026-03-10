@@ -1,0 +1,170 @@
+diff --git a/platformio.ini b/platformio.ini
+index 8a9446ff..e6769231 100644
+--- a/platformio.ini
++++ b/platformio.ini
+@@ -225,6 +225,7 @@ lib_deps =
+     Z2S_Library
+ build_flags = 
+     ${common.build_flags}
++    -D SUPLA_ZIGBEE_GATEWAY
+     -D CORE_DEBUG_LEVEL=5
+     -D ARDUINO_ESP32C6_DEV
+     ;-D ARDUINO_USB_MODE=1
+@@ -316,4 +317,4 @@ lib_ignore =
+     ${common_no_libs.lib_ignore}
+ build_flags =
+     ${common.build_flags}
+-lib_ldf_mode = chain+
+\ No newline at end of file
++lib_ldf_mode = chain+
+diff --git a/src/GUI-Generic.ino b/src/GUI-Generic.ino
+index e9f52de2..08607002 100644
+--- a/src/GUI-Generic.ino
++++ b/src/GUI-Generic.ino
+@@ -62,6 +62,10 @@ void setup() {
+   new Supla::boneIO();
+ #endif
+ 
++#if defined(SUPLA_ZIGBEE_GATEWAY) && defined(CONFIG_IDF_TARGET_ESP32C6)
++  Supla::GUI::ZigbeeGatewayMode::setup();
++#endif
++
+ #ifdef GUI_SENSOR_I2C_EXPENDER
+   Expander = new Supla::Control::ConfigExpander();
+ #endif
+@@ -997,6 +1001,10 @@ void loop() {
+   const uint32_t now = millis();
+   SuplaDevice.iterate();
+ 
++#if defined(SUPLA_ZIGBEE_GATEWAY) && defined(CONFIG_IDF_TARGET_ESP32C6)
++  Supla::GUI::ZigbeeGatewayMode::iterate();
++#endif
++
+ #ifndef SUPLA_CC1101
+   uint32_t delay_time = LOOP_INTERVAL;
+   if (now - last_loop < LOOP_INTERVAL)
+diff --git a/src/SuplaConfigManager.cpp b/src/SuplaConfigManager.cpp
+index 3c96f7d9..b9773a3e 100644
+--- a/src/SuplaConfigManager.cpp
++++ b/src/SuplaConfigManager.cpp
+@@ -31,6 +31,20 @@ const char ConfigFileName[] = "/supla-dev.cfg";
+ const char CustomCAFileName[] = "/custom_ca.pem";
+ };  // namespace Supla
+ 
++namespace {
++void enableMqttIfMissing(Supla::Config *config) {
++#ifdef ARDUINO_ARCH_ESP32
++  int8_t mqttEnabled = 0;
++  if (config != nullptr && !config->getInt8("mqttcommproto", &mqttEnabled)) {
++    config->setMqttCommProtocolEnabled(true);
++    config->commit();
++  }
++#else
++  (void)config;
++#endif
++}
++}  // namespace
++
+ ConfigOption::ConfigOption(uint8_t key, const char *value, int maxLength, bool loadKey)
+     : _key(key), _value(nullptr), _maxLength(maxLength), _loadKey(loadKey) {
+   if (maxLength > 0) {
+@@ -679,6 +693,20 @@ uint8_t SuplaConfigManager::load(bool configParse) {
+   }
+ }
+ 
++bool SuplaConfigManager::init() {
++  const bool result = Supla::SPIFFSConfig::init();
++  if (result) {
++    enableMqttIfMissing(this);
++  }
++  return result;
++}
++
++void SuplaConfigManager::initDefaultDeviceConfig() {
++#ifdef ARDUINO_ARCH_ESP32
++  setMqttCommProtocolEnabled(true);
++#endif
++}
++
+ uint8_t SuplaConfigManager::save() {
+   if (SPIFFSbegin()) {
+     int i = 0;
+@@ -949,4 +977,4 @@ bool SuplaConfigManager::getUInt8(const char *key, uint8_t *result) {
+   return KeyValue::getUInt8(key, result);
+ }
+ 
+-#pragma GCC diagnostic pop
+\ No newline at end of file
++#pragma GCC diagnostic pop
+diff --git a/src/SuplaConfigManager.h b/src/SuplaConfigManager.h
+index 647fe2ba..926124b9 100644
+--- a/src/SuplaConfigManager.h
++++ b/src/SuplaConfigManager.h
+@@ -315,6 +315,7 @@ class ConfigOption {
+ class SuplaConfigManager : public Supla::SPIFFSConfig {
+  public:
+   explicit SuplaConfigManager();
++  bool init() override;
+   bool SPIFFSbegin();
+   bool migrationConfig();
+   uint8_t addKey(uint8_t key, int maxLength, bool loadKey = true);
+@@ -362,6 +363,7 @@ class SuplaConfigManager : public Supla::SPIFFSConfig {
+   bool getWiFiPassword(char *result) override;
+ 
+   bool getUInt8(const char *key, uint8_t *result) override;
++  void initDefaultDeviceConfig() override;
+ 
+  private:
+   int _optionCount;
+diff --git a/src/SuplaDeviceGUI.cpp b/src/SuplaDeviceGUI.cpp
+index 0e566510..6528de55 100644
+--- a/src/SuplaDeviceGUI.cpp
++++ b/src/SuplaDeviceGUI.cpp
+@@ -24,6 +24,13 @@ void begin() {
+   setupConnection();
+   enableConnectionSSL(ConfigESP->checkSSL());
+ 
++#ifdef ARDUINO_ARCH_ESP32
++  static MqttClient *mqtt = nullptr;
++  if (mqtt == nullptr) {
++    mqtt = new MqttClient(&SuplaDevice);
++  }
++#endif
++
+ #ifdef BUILD_VERSION
+   String ver = "GG v" + String(BUILD_VERSION);
+   ver.reserve(16);
+diff --git a/src/SuplaDeviceGUI.h b/src/SuplaDeviceGUI.h
+index dc610b87..14875b9e 100644
+--- a/src/SuplaDeviceGUI.h
++++ b/src/SuplaDeviceGUI.h
+@@ -190,6 +190,8 @@
+ 
+ #include "src/improv/improv_serial_component.h"
+ #include "src/network/SuplaGuiWiFi.h"
++#include "src/network/SuplaGuiMqtt.h"
++#include "src/zigbee/SuplaZigbeeGateway.h"
+ 
+ #ifdef SUPLA_VINDRIKTNING_IKEA_KPOP
+ #include "src/sensor/VindriktningIkea.h"
+diff --git a/src/src/update/SuplaHTTPUpdateServer.h b/src/src/update/SuplaHTTPUpdateServer.h
+index 383a2ecf..9e1f38e4 100644
+--- a/src/src/update/SuplaHTTPUpdateServer.h
++++ b/src/src/update/SuplaHTTPUpdateServer.h
+@@ -11,7 +11,9 @@
+ #define INPUT_UPDATE_URL          "iuu"
+ #define PATH_UPDATE               "updateOTA"
+ 
++#ifndef HOST_BUILDER
+ #define HOST_BUILDER "http://gui-generic-builder.supla.io/"
++#endif
+ 
+ class HTTPUpdateServer {
+  public:
+@@ -40,4 +42,4 @@ class HTTPUpdateServer {
+   void updateManual();
+ };
+ #endif
+-#endif
+\ No newline at end of file
++#endif

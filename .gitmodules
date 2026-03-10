@@ -1,0 +1,3 @@
+[submodule "external/GUI-Generic"]
+	path = external/GUI-Generic
+	url = git@github.com:krycha88/GUI-Generic.git
