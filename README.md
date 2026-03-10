@@ -69,3 +69,21 @@ sudo systemctl enable --now local_builder.service
 ```
 
 Przed włączeniem usługi warto poprawić `LOCAL_BUILDER_PUBLIC_URL` w pliku `scripts/local_builder.service` na właściwy adres hosta w LAN.
+
+## Sonoff Dual R3 Power Monitoring
+
+`Sonoff Dual R3 Power Monitoring (DUALR3)` jest tu obsługiwany osobno od `Sonoff Dual R3 Lite`.
+
+Lokalny builder ma preset sprzętowy dla `DUALR3 Power Monitoring`, który pozwala ręcznie dobrać układ pomiarowy występujący w tej serii:
+
+- `BL0930`
+- `CSE7761`
+- `CSE7766`
+
+Preset automatycznie ustawia bazowy template płytki, a układ i piny pomiarowe można dobrać z poziomu UI.
+
+## Debian Installation
+
+Instrukcja instalacji na dowolnej maszynie z systemem opartym o Debiana jest w:
+
+- [docs/install-debian.md](/home/langnet/Projekty/Supla/docs/install-debian.md)

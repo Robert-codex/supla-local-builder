@@ -189,6 +189,45 @@ button.ghost {
   color: var(--muted);
 }
 
+.preset-panel {
+  margin-top: 6px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(13, 124, 102, 0.06);
+  border: 1px solid rgba(13, 124, 102, 0.12);
+}
+
+.preset-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.preset-head strong {
+  font-size: 0.98rem;
+}
+
+.preset-head small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.preset-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.preset-note {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.65);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .build-status {
   min-height: 110px;
   padding: 18px;
@@ -373,6 +412,10 @@ button.ghost {
 
   .grid,
   .hero-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .preset-grid {
     grid-template-columns: 1fr;
   }
 

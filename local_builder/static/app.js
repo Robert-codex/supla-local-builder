@@ -5,6 +5,21 @@ const state = {
   pollTimer: null,
 };
 
+const DUAL_R3_PM_TEMPLATE_NAME = "Sonoff Dual R3 Power Monitoring";
+const DUAL_R3_PM_BASE_GPIO = [
+  32, 0, 0, 0, 0, 0, 0, 0, 0, 576, 225, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224,
+  0, 0, 0, 0, 160, 161, 0, 0, 0, 0, 0, 0,
+];
+const TEMPLATE_CODES = {
+  cse7766Rx: 3104,
+  cse7761Tx: 7296,
+  cse7761Rx: 7328,
+  cf: 2688,
+};
+const DUAL_R3_REQUIRED_OPTIONS = ["SUPLA_RELAY", "SUPLA_BUTTON"];
+const DUAL_R3_METER_OPTIONS = ["SUPLA_CSE7761", "SUPLA_CSE7766", "SUPLA_BL0930"];
+
 const els = {
   catalogVersion: document.getElementById("catalogVersion"),
   publicUrl: document.getElementById("publicUrl"),
@@ -13,6 +28,15 @@ const els = {
   buildVersion: document.getElementById("buildVersion"),
   customName: document.getElementById("customName"),
   templateSelect: document.getElementById("templateSelect"),
+  hardwarePreset: document.getElementById("hardwarePreset"),
+  meterChip: document.getElementById("meterChip"),
+  meterRxPin: document.getElementById("meterRxPin"),
+  meterTxPin: document.getElementById("meterTxPin"),
+  meterCfPin: document.getElementById("meterCfPin"),
+  meterCf1Pin: document.getElementById("meterCf1Pin"),
+  meterSelPin: document.getElementById("meterSelPin"),
+  hardwarePresetPanel: document.getElementById("hardwarePresetPanel"),
+  hardwarePresetNote: document.getElementById("hardwarePresetNote"),
   templateJson: document.getElementById("templateJson"),
   searchInput: document.getElementById("searchInput"),
   selectionSummary: document.getElementById("selectionSummary"),
@@ -100,6 +124,193 @@ function normalizeSelection() {
       }
     }
   }
+
+  applyHardwarePresetSelection();
+}
+
+function templateIndexForEsp32Pin(pin) {
+  if (!Number.isInteger(pin) || pin < 0 || pin > 39) {
+    return null;
+  }
+  if (pin <= 5) {
+    return pin;
+  }
+  if (pin === 6) {
+    return 24;
+  }
+  if (pin === 7) {
+    return 25;
+  }
+  if (pin === 8) {
+    return 26;
+  }
+  if (pin === 9) {
+    return 6;
+  }
+  if (pin === 10) {
+    return 7;
+  }
+  if (pin === 11) {
+    return 27;
+  }
+  if (pin >= 12 && pin <= 27) {
+    return pin - 4;
+  }
+  if (pin >= 32 && pin <= 39) {
+    return pin - 4;
+  }
+  return null;
+}
+
+function parseOptionalPin(value) {
+  if (value === "") {
+    return null;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function setTemplatePin(template, pin, code) {
+  const index = templateIndexForEsp32Pin(pin);
+  if (index === null) {
+    return false;
+  }
+  while (template.GPIO.length <= index) {
+    template.GPIO.push(0);
+  }
+  template.GPIO[index] = code;
+  return true;
+}
+
+function isDualR3PresetActive() {
+  return els.hardwarePreset.value === "sonoff_dual_r3_pm";
+}
+
+function dualR3MeterRequirements(chip) {
+  switch (chip) {
+    case "cse7761":
+      return {
+        requiredPins: ["rx", "tx"],
+        optionId: "SUPLA_CSE7761",
+        note: "DUALR3 Power Monitoring zwykle używa UART na GPIO25/GPIO26. Ten wariant buildera pozwala to ręcznie zmienić.",
+      };
+    case "cse7766":
+      return {
+        requiredPins: ["rx"],
+        optionId: "SUPLA_CSE7766",
+        note: "Dla CSE7766 firmware używa wejścia RX. Jeśli układ wymaga też TX, trzeba go obsłużyć poza aktualnym presetem.",
+      };
+    case "bl0930":
+      return {
+        requiredPins: ["cf"],
+        optionId: "SUPLA_BL0930",
+        note: "BL0930 w `DUALR3 Power Monitoring` jest obsługiwany jako driver impulsowy `CF`. Pin ustawiasz ręcznie.",
+      };
+    default:
+      return {
+        requiredPins: [],
+        optionId: "",
+        note: "Preset ustawia tylko bazowe GPIO `DUALR3`. Układ pomiarowy możesz dobrać później albo zostawić wyłączony.",
+      };
+  }
+}
+
+function updateHardwarePresetVisibility() {
+  els.hardwarePresetPanel.hidden = false;
+  const active = isDualR3PresetActive();
+  els.meterChip.disabled = !active;
+  els.meterRxPin.disabled = !active;
+  els.meterTxPin.disabled = !active;
+  els.meterCfPin.disabled = !active;
+  els.meterCf1Pin.disabled = !active;
+  els.meterSelPin.disabled = !active;
+
+  if (!active) {
+    els.hardwarePresetNote.textContent = "Presety sprzętowe składają gotowy template bez ręcznego pisania JSON-a.";
+    return;
+  }
+
+  els.hardwarePresetNote.textContent = dualR3MeterRequirements(els.meterChip.value).note;
+}
+
+function setRecommendedMeterPins(chip) {
+  if (chip === "cse7761") {
+    if (!els.meterTxPin.value) {
+      els.meterTxPin.value = "25";
+    }
+    if (!els.meterRxPin.value) {
+      els.meterRxPin.value = "26";
+    }
+  } else if (chip === "cse7766") {
+    if (!els.meterRxPin.value) {
+      els.meterRxPin.value = "26";
+    }
+  }
+}
+
+function buildDualR3Template() {
+  const template = {
+    NAME: DUAL_R3_PM_TEMPLATE_NAME,
+    GPIO: [...DUAL_R3_PM_BASE_GPIO],
+  };
+  const chip = els.meterChip.value;
+  const rxPin = parseOptionalPin(els.meterRxPin.value.trim());
+  const txPin = parseOptionalPin(els.meterTxPin.value.trim());
+  const cfPin = parseOptionalPin(els.meterCfPin.value.trim());
+
+  if (chip === "cse7761") {
+    setTemplatePin(template, txPin, TEMPLATE_CODES.cse7761Tx);
+    setTemplatePin(template, rxPin, TEMPLATE_CODES.cse7761Rx);
+  } else if (chip === "cse7766") {
+    setTemplatePin(template, rxPin, TEMPLATE_CODES.cse7766Rx);
+  } else if (chip === "bl0930") {
+    setTemplatePin(template, cfPin, TEMPLATE_CODES.cf);
+  }
+
+  return JSON.stringify(template, null, 2);
+}
+
+function validateHardwarePreset() {
+  if (!isDualR3PresetActive()) {
+    return { ok: true, message: "" };
+  }
+
+  const requirements = dualR3MeterRequirements(els.meterChip.value);
+  const pinValues = {
+    rx: parseOptionalPin(els.meterRxPin.value.trim()),
+    tx: parseOptionalPin(els.meterTxPin.value.trim()),
+    cf: parseOptionalPin(els.meterCfPin.value.trim()),
+  };
+
+  for (const key of requirements.requiredPins) {
+    const pin = pinValues[key];
+    if (!Number.isInteger(pin) || templateIndexForEsp32Pin(pin) === null) {
+      return { ok: false, message: `Preset DUALR3 wymaga poprawnego GPIO dla pola ${key.toUpperCase()}.` };
+    }
+  }
+
+  return { ok: true, message: requirements.note };
+}
+
+function applyHardwarePresetSelection() {
+  if (!isDualR3PresetActive()) {
+    return;
+  }
+
+  for (const optionId of DUAL_R3_REQUIRED_OPTIONS) {
+    if (state.config.options[optionId]) {
+      state.selected.add(optionId);
+    }
+  }
+
+  for (const optionId of DUAL_R3_METER_OPTIONS) {
+    state.selected.delete(optionId);
+  }
+
+  const meterOption = dualR3MeterRequirements(els.meterChip.value).optionId;
+  if (meterOption && state.config.options[meterOption]) {
+    state.selected.add(meterOption);
+  }
 }
 
 function setDefaults() {
@@ -112,6 +323,13 @@ function setDefaults() {
   const dd = String(today.getDate()).padStart(2, "0");
   els.buildVersion.value = `${yy}.${mm}.${dd}`;
   els.customName.value = "";
+  els.hardwarePreset.value = "";
+  els.meterChip.value = "none";
+  els.meterRxPin.value = "";
+  els.meterTxPin.value = "";
+  els.meterCfPin.value = "";
+  els.meterCf1Pin.value = "";
+  els.meterSelPin.value = "";
   els.templateJson.value = "";
   normalizeSelection();
   renderAll();
@@ -211,11 +429,15 @@ function renderOptions() {
 function renderSummary() {
   const selectedList = [...state.selected].sort();
   const templateName = els.templateSelect.value || "brak";
+  const hardwarePreset = els.hardwarePreset.value || "brak";
+  const meterChip = isDualR3PresetActive() ? els.meterChip.value : "brak";
   els.selectionSummary.innerHTML = `
     <strong>${selectedList.length}</strong> aktywnych opcji |
     env: <strong>${escapeHtml(els.envSelect.value)}</strong> |
     język: <strong>${escapeHtml(els.languageSelect.value)}</strong> |
-    template: <strong>${escapeHtml(templateName)}</strong>
+    template: <strong>${escapeHtml(templateName)}</strong> |
+    preset: <strong>${escapeHtml(hardwarePreset)}</strong> |
+    pomiar: <strong>${escapeHtml(meterChip)}</strong>
   `;
 }
 
@@ -260,6 +482,7 @@ function renderStatus(payload) {
 }
 
 function renderAll() {
+  updateHardwarePresetVisibility();
   renderOptions();
   renderSummary();
 }
@@ -268,6 +491,9 @@ function selectedTemplateJson() {
   const custom = els.templateJson.value.trim();
   if (custom) {
     return custom;
+  }
+  if (isDualR3PresetActive()) {
+    return buildDualR3Template();
   }
   const selectedName = els.templateSelect.value;
   if (!selectedName) {
@@ -300,6 +526,19 @@ async function triggerBuild() {
   if (state.pollTimer) {
     clearTimeout(state.pollTimer);
     state.pollTimer = null;
+  }
+
+  const hardwareValidation = validateHardwarePreset();
+  if (!hardwareValidation.ok) {
+    renderStatus({
+      status: "failed",
+      hash: "",
+      request: {},
+      error: hardwareValidation.message,
+      artifact_urls: {},
+      log_tail: "",
+    });
+    return;
   }
 
   const payload = {
@@ -366,6 +605,22 @@ async function bootstrap() {
 
   els.searchInput.addEventListener("input", renderOptions);
   els.languageSelect.addEventListener("change", renderAll);
+  els.hardwarePreset.addEventListener("change", () => {
+    if (isDualR3PresetActive()) {
+      els.templateSelect.value = DUAL_R3_PM_TEMPLATE_NAME;
+      els.envSelect.value = "GUI_Generic_ESP32";
+    }
+    normalizeSelection();
+    renderAll();
+  });
+  els.meterChip.addEventListener("change", () => {
+    setRecommendedMeterPins(els.meterChip.value);
+    normalizeSelection();
+    renderAll();
+  });
+  [els.meterRxPin, els.meterTxPin, els.meterCfPin, els.meterCf1Pin, els.meterSelPin].forEach((input) => {
+    input.addEventListener("input", renderSummary);
+  });
   els.templateSelect.addEventListener("change", () => {
     const selectedName = els.templateSelect.value;
     if (!els.templateJson.value.trim() && selectedName) {

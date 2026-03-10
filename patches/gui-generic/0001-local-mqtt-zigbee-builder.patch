@@ -335,6 +335,45 @@ index dc610b87..24657843 100644
  #ifdef SUPLA_ADE7953
  extern Supla::Sensor::ADE7953 *couterADE7953;
  void addADE7953(int8_t pinIRQ);
+diff --git a/src/SuplaTemplateBoard.cpp b/src/SuplaTemplateBoard.cpp
+index 50fd7cc2..1bc3deaa 100644
+--- a/src/SuplaTemplateBoard.cpp
++++ b/src/SuplaTemplateBoard.cpp
+@@ -471,6 +471,14 @@ void chooseTemplateBoard(String board) {
+         ConfigESP->setGpio(gpio, FUNCTION_CSE7766_RX);
+         break;
+ 
++      case NewCSE7761Tx:
++        ConfigESP->setGpio(gpio, FUNCTION_CSE7761_TX);
++        break;
++
++      case NewCSE7761Rx:
++        ConfigESP->setGpio(gpio, FUNCTION_CSE7761_RX);
++        break;
++
+       case NewBinary1:
+         addLimitSwitch(0, gpio);
+         break;
+@@ -1201,4 +1209,4 @@ void chooseTemplateBoard(uint8_t board) {
+       break;
+   }
+ }
+-#endif
+\ No newline at end of file
++#endif
+diff --git a/src/SuplaTemplateBoard.h b/src/SuplaTemplateBoard.h
+index 23a46d9e..438d4823 100644
+--- a/src/SuplaTemplateBoard.h
++++ b/src/SuplaTemplateBoard.h
+@@ -192,6 +192,8 @@ enum FunctionNew
+   NewCSE7766Rx = 3104,
+   NewADE7953_IRQ = 3456,
+   NewTemperatureAnalog = 4736,
++  NewCSE7761Tx = 7296,
++  NewCSE7761Rx = 7328,
+   NewEthPOWER = 5536,
+   NewEthMDC = 5568,
+   NewEthMDIO = 5600,
 diff --git a/src/SuplaWebPageOther.cpp b/src/SuplaWebPageOther.cpp
 index d1c9c22e..f820951b 100644
 --- a/src/SuplaWebPageOther.cpp
@@ -501,3 +540,15 @@ index 383a2ecf..9e1f38e4 100644
 -#endif
 \ No newline at end of file
 +#endif
+diff --git a/template_boards.json b/template_boards.json
+index 2359a672..276fea0f 100644
+--- a/template_boards.json
++++ b/template_boards.json
+@@ -44,6 +44,7 @@
+   {"NAME":"2xPCF8575","GPIO":[0,0,544,0,640,608,0,0,0,0,0,0,0,0],"PCF8575":[[[0,1],1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16],[[1,2],1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]],"FLASH":"4M1M"},
+   {"NAME":"Shelly Plus 1PM","GPIO":[0,0,0,0,192,2720,0,0,0,0,0,0,0,0,2656,0,0,0,0,2624,0,0,224,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+   {"NAME":"Sonoff Dual R3 Lite","GPIO":[32,0,0,0,0,0,0,0,0,576,225,0,0,0,0,0,0,0,0,0,0,0,0,224,0,0,0,0,160,161,0,0,0,0,0,0]},
++  {"NAME":"Sonoff Dual R3 Power Monitoring","GPIO":[32,0,0,0,0,0,0,0,0,576,225,0,0,0,0,0,0,0,0,0,0,0,0,224,0,0,0,0,160,161,0,0,0,0,0,0]},
+   {"NAME":"Wemos LOLIN D32","GPIO":[0,0,0,0,0,544,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+   {"NAME":"Sonoff POW R3 Origin 16A","GPIO":[32,0,0,0,0,576,0,0,0,224,0,0,3104,0,320,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
+   {"NAME":"Sonoff MINIR4","GPIO":[32,0,0,0,0,0,0,0,0,0,0,0,0,0,0,576,0,0,0,0,0,0,224,160,0,0,0,0,0,0,0,0,0,0,0,0]},

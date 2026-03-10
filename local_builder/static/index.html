@@ -60,6 +60,53 @@
             <span>Template board</span>
             <select id="templateSelect"></select>
           </label>
+          <section id="hardwarePresetPanel" class="preset-panel wide">
+            <div class="preset-head">
+              <strong>Asystent sprzętu</strong>
+              <small>Gotowe presety z ręcznym mapowaniem licznika energii</small>
+            </div>
+            <div class="grid preset-grid">
+              <label>
+                <span>Preset</span>
+                <select id="hardwarePreset">
+                  <option value="">brak</option>
+                  <option value="sonoff_dual_r3_pm">Sonoff Dual R3 Power Monitoring</option>
+                </select>
+              </label>
+              <label>
+                <span>Układ pomiarowy</span>
+                <select id="meterChip">
+                  <option value="none">brak</option>
+                  <option value="cse7761">CSE7761</option>
+                  <option value="cse7766">CSE7766</option>
+                  <option value="bl0930">BL0930</option>
+                </select>
+              </label>
+              <label>
+                <span>RX</span>
+                <input id="meterRxPin" type="number" min="0" max="39" placeholder="np. 26">
+              </label>
+              <label>
+                <span>TX</span>
+                <input id="meterTxPin" type="number" min="0" max="39" placeholder="np. 25">
+              </label>
+              <label>
+                <span>CF</span>
+                <input id="meterCfPin" type="number" min="0" max="39" placeholder="manualnie">
+              </label>
+              <label>
+                <span>CF1</span>
+                <input id="meterCf1Pin" type="number" min="0" max="39" placeholder="manualnie">
+              </label>
+              <label>
+                <span>SEL</span>
+                <input id="meterSelPin" type="number" min="0" max="39" placeholder="manualnie">
+              </label>
+            </div>
+            <div id="hardwarePresetNote" class="preset-note">
+              Preset `DUALR3` automatycznie ustawia bazowe GPIO przekaźników i przycisków. Dla wersji Power Monitoring możesz ręcznie wybrać `BL0930`, `CSE7761` albo `CSE7766`.
+            </div>
+          </section>
           <label class="wide">
             <span>Własny JSON template</span>
             <textarea id="templateJson" rows="4" placeholder='{"NAME":"Custom","GPIO":[...]}'></textarea>
