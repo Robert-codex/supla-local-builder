@@ -1,5 +1,5 @@
 diff --git a/builder.json b/builder.json
-index 36b76a3b..94beae12 100644
+index 36b76a3b..31d3b7ea 100644
 --- a/builder.json
 +++ b/builder.json
 @@ -1134,6 +1134,50 @@
@@ -10,7 +10,7 @@ index 36b76a3b..94beae12 100644
 +			"name": "Licznik energii CSE7761",
 +			"desc": "Ustawienia urządzenia->Inne. Umożliwia obsługę licznika energii CSE7761 przez ten sam interfejs UART co CSE7766.",
 +			"defOn": false,
-+			"opts": "SUPLA_CSE7766",
++			"opts": "-D SUPLA_CSE7766",
 +			"en": {
 +				"name": "Energy meter CSE7761",
 +				"desc": "Device settings->Other. It enables CSE7761 energy meter support through the same UART path as CSE7766."
@@ -32,7 +32,7 @@ index 36b76a3b..94beae12 100644
 +			"name": "Licznik energii BL0930",
 +			"desc": "Ustawienia urządzenia->Inne. Umożliwia obsługę licznika energii BL0930 przez ten sam interfejs UART co CSE7766.",
 +			"defOn": false,
-+			"opts": "SUPLA_CSE7766",
++			"opts": "-D SUPLA_CSE7766",
 +			"en": {
 +				"name": "Energy meter BL0930",
 +				"desc": "Device settings->Other. It enables BL0930 energy meter support through the same UART path as CSE7766."
