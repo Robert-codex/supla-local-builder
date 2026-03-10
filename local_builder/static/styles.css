@@ -334,6 +334,80 @@ button.ghost {
   line-height: 1.5;
 }
 
+.devices-panel {
+  margin-bottom: 24px;
+}
+
+.devices-panel .panel-head input {
+  max-width: 320px;
+}
+
+.featured-devices,
+.device-groups {
+  display: grid;
+  gap: 18px;
+}
+
+.featured-devices {
+  margin-bottom: 18px;
+}
+
+.featured-grid,
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.device-group h3,
+.featured-block h3 {
+  margin: 0 0 12px;
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  font-size: 1rem;
+}
+
+.device-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.device-card strong {
+  font-size: 0.98rem;
+}
+
+.device-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.device-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.device-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(13, 124, 102, 0.1);
+  color: var(--accent-strong);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.device-card button {
+  margin-top: 4px;
+}
+
 .legend {
   display: flex;
   gap: 8px;
@@ -489,6 +563,11 @@ button.ghost {
   }
 
   .options-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .featured-grid,
+  .device-grid {
     grid-template-columns: 1fr;
   }
 }

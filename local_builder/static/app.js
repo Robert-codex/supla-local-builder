@@ -42,6 +42,59 @@ const DUAL_R3_PRESETS = {
     label: "Sonoff Dual R3 + CSE7766",
   },
 };
+const FEATURED_DEVICE_PRESETS = [
+  {
+    id: "dualr3-pm",
+    name: "Sonoff Dual R3 Power Monitoring",
+    description: "Bazowy preset DUALR3 z ręcznym doborem układu pomiarowego i pinów.",
+    templateName: DUAL_R3_PM_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
+    hardwarePreset: "sonoff_dual_r3_pm",
+    chips: ["ESP32", "DUALR3", "Power Monitoring"],
+  },
+  {
+    id: "dualr3-cse7761",
+    name: "Sonoff Dual R3 + CSE7761",
+    description: "Gotowy preset DUALR3 pod wariant z CSE7761.",
+    templateName: DUAL_R3_PM_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
+    hardwarePreset: "sonoff_dual_r3_pm_cse7761",
+    chips: ["ESP32", "CSE7761"],
+  },
+  {
+    id: "dualr3-cse7766",
+    name: "Sonoff Dual R3 + CSE7766",
+    description: "Gotowy preset DUALR3 pod wariant z CSE7766.",
+    templateName: DUAL_R3_PM_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
+    hardwarePreset: "sonoff_dual_r3_pm_cse7766",
+    chips: ["ESP32", "CSE7766"],
+  },
+  {
+    id: "dualr3-bl0930",
+    name: "Sonoff Dual R3 + BL0930",
+    description: "Gotowy preset DUALR3 pod wariant z BL0930.",
+    templateName: DUAL_R3_PM_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
+    hardwarePreset: "sonoff_dual_r3_pm_bl0930",
+    chips: ["ESP32", "BL0930"],
+  },
+  {
+    id: "zigbee-gateway",
+    name: "ESP32-C6 Zigbee Gateway",
+    description: "Preset dla bramki Zigbee na ESP32-C6 z profilem gateway dodanym w projekcie.",
+    templateName: "",
+    processor: "esp32c6",
+    env: "GUI_Generic_ESP32C6_Zigbee_gateway",
+    hardwarePreset: "",
+    selectedOptions: [],
+    chips: ["ESP32-C6", "Zigbee"],
+  },
+];
 
 const els = {
   catalogVersion: document.getElementById("catalogVersion"),
@@ -77,6 +130,9 @@ const els = {
   openOtaButton: document.getElementById("openOtaButton"),
   installArtifacts: document.getElementById("installArtifacts"),
   buildHistory: document.getElementById("buildHistory"),
+  featuredDevices: document.getElementById("featuredDevices"),
+  deviceGroups: document.getElementById("deviceGroups"),
+  deviceSearch: document.getElementById("deviceSearch"),
   refreshBuilds: document.getElementById("refreshBuilds"),
   resetDefaults: document.getElementById("resetDefaults"),
   optionTemplate: document.getElementById("optionTemplate"),
@@ -189,6 +245,150 @@ function renderTemplateSelect(preferredTemplate = "") {
   if (preferredTemplate && templates.some((template) => template.NAME === preferredTemplate)) {
     els.templateSelect.value = preferredTemplate;
   }
+}
+
+function templateVendor(name) {
+  if (!name) {
+    return "Inne";
+  }
+  const [first] = name.split(" ");
+  if (!first) {
+    return "Inne";
+  }
+  if (/^\d/.test(first)) {
+    return "Własne / moduły";
+  }
+  return first;
+}
+
+function templateFamily(template) {
+  const gpioCount = Array.isArray(template.GPIO) ? template.GPIO.length : 0;
+  return gpioCount > 20 ? "esp32" : "esp82xx";
+}
+
+function applyDevicePreset(preset) {
+  if (preset.processor) {
+    els.processorSelect.value = preset.processor;
+    renderEnvSelect(preset.env || "");
+  }
+  if (preset.templateName) {
+    renderTemplateSelect(preset.templateName);
+    els.templateSelect.value = preset.templateName;
+  }
+  els.hardwarePreset.value = preset.hardwarePreset || "";
+  if (preset.hardwarePreset) {
+    applyDualR3PresetDefaults();
+  } else {
+    els.meterChip.value = "none";
+    els.meterRxPin.value = "";
+    els.meterTxPin.value = "";
+    els.meterCfPin.value = "";
+    els.meterCf1Pin.value = "";
+    els.meterSelPin.value = "";
+  }
+  if (preset.selectedOptions?.length) {
+    state.selected = new Set(preset.selectedOptions);
+  }
+  normalizeSelection();
+  renderAll();
+}
+
+function renderFeaturedDevices() {
+  const search = els.deviceSearch.value.trim().toLowerCase();
+  const items = FEATURED_DEVICE_PRESETS.filter((preset) => (
+    !search ||
+    preset.name.toLowerCase().includes(search) ||
+    preset.description.toLowerCase().includes(search) ||
+    preset.chips.some((chip) => chip.toLowerCase().includes(search))
+  ));
+
+  if (!items.length) {
+    els.featuredDevices.innerHTML = "";
+    return;
+  }
+
+  els.featuredDevices.innerHTML = `
+    <section class="featured-block">
+      <h3>Presety projektu</h3>
+      <div class="featured-grid">
+        ${items.map((preset) => `
+          <article class="device-card">
+            <strong>${escapeHtml(preset.name)}</strong>
+            <p>${escapeHtml(preset.description)}</p>
+            <div class="device-meta">
+              ${preset.chips.map((chip) => `<span class="device-chip">${escapeHtml(chip)}</span>`).join("")}
+            </div>
+            <button type="button" data-preset-id="${escapeHtml(preset.id)}">Wybierz preset</button>
+          </article>
+        `).join("")}
+      </div>
+    </section>
+  `;
+
+  els.featuredDevices.querySelectorAll("button[data-preset-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const preset = FEATURED_DEVICE_PRESETS.find((item) => item.id === button.dataset.presetId);
+      if (preset) {
+        applyDevicePreset(preset);
+      }
+    });
+  });
+}
+
+function renderDeviceGroups() {
+  const search = els.deviceSearch.value.trim().toLowerCase();
+  const groups = new Map();
+  for (const template of state.config.templates) {
+    const vendor = templateVendor(template.NAME);
+    if (!groups.has(vendor)) {
+      groups.set(vendor, []);
+    }
+    groups.get(vendor).push(template);
+  }
+
+  const sortedGroups = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0], "pl"));
+  els.deviceGroups.innerHTML = sortedGroups.map(([vendor, templates]) => {
+    const filtered = templates.filter((template) => !search || template.NAME.toLowerCase().includes(search));
+    if (!filtered.length) {
+      return "";
+    }
+    return `
+      <section class="device-group">
+        <h3>${escapeHtml(vendor)}</h3>
+        <div class="device-grid">
+          ${filtered.map((template) => `
+            <article class="device-card">
+              <strong>${escapeHtml(template.NAME)}</strong>
+              <p>Template board z katalogu GUI Generic. Kliknięcie ustawia płytkę i zachowuje resztę konfiguracji firmware.</p>
+              <div class="device-meta">
+                <span class="device-chip">${escapeHtml(envFamilyLabel(templateFamily(template)))}</span>
+              </div>
+              <button type="button" data-template-name="${escapeHtml(template.NAME)}">Wybierz urządzenie</button>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+    `;
+  }).join("");
+
+  els.deviceGroups.querySelectorAll("button[data-template-name]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const templateName = button.dataset.templateName || "";
+      const template = state.config.templates.find((item) => item.NAME === templateName);
+      if (template) {
+        els.processorSelect.value = templateFamily(template);
+        renderEnvSelect();
+      }
+      renderTemplateSelect(templateName);
+      els.templateSelect.value = templateName;
+      if (!els.templateJson.value.trim()) {
+        if (template) {
+          els.templateJson.value = JSON.stringify(template, null, 2);
+        }
+      }
+      renderAll();
+    });
+  });
 }
 
 function normalizeSelection() {
@@ -617,6 +817,8 @@ function renderAll() {
   updateHardwarePresetVisibility();
   renderOptions();
   renderSummary();
+  renderFeaturedDevices();
+  renderDeviceGroups();
 }
 
 function renderInstallPanel(payload) {
@@ -763,9 +965,14 @@ async function bootstrap() {
   els.processorSelect.addEventListener("change", () => {
     renderEnvSelect();
     renderSummary();
+    renderDeviceGroups();
   });
   els.templateFilter.addEventListener("input", () => {
     renderTemplateSelect(els.templateSelect.value);
+  });
+  els.deviceSearch.addEventListener("input", () => {
+    renderFeaturedDevices();
+    renderDeviceGroups();
   });
   els.hardwarePreset.addEventListener("change", () => {
     applyDualR3PresetDefaults();
