@@ -95,3 +95,26 @@ Preset automatycznie ustawia bazowy template płytki, a warianty z licznikiem wy
 Instrukcja instalacji na dowolnej maszynie z systemem opartym o Debiana jest w:
 
 - [docs/install-debian.md](/home/langnet/Projekty/Supla/docs/install-debian.md)
+
+Skrócona instalacja dla Debian/Ubuntu z dostępem w LAN:
+
+```bash
+sudo apt update
+sudo apt install -y git curl python3 python3-pip python3-venv build-essential
+
+git clone https://github.com/Robert-codex/supla-local-builder.git
+cd supla-local-builder
+
+git submodule update --init --recursive
+./scripts/apply_gui_generic_patches.sh
+./scripts/install_local_builder.sh
+
+export LOCAL_BUILDER_PUBLIC_URL="http://IP_TWOJEGO_HOSTA:8181/"
+./scripts/run_local_builder.sh
+```
+
+Po tym builder będzie dostępny z innych urządzeń w LAN pod adresem:
+
+```text
+http://IP_TWOJEGO_HOSTA:8181/
+```
