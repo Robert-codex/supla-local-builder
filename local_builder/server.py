@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -227,6 +228,8 @@ class BuildMetadata:
     request: dict[str, Any]
     artifact_urls: dict[str, str] = field(default_factory=dict)
     artifact_files: dict[str, str] = field(default_factory=dict)
+    flash_parts: list[dict[str, str]] = field(default_factory=list)
+    chip_family: str = ""
     log_path: str = ""
     error: str = ""
     platformio_cmd: str = ""
@@ -340,6 +343,8 @@ class BuildManager:
                 request=payload["request"],
                 artifact_urls=payload.get("artifact_urls", {}),
                 artifact_files=payload.get("artifact_files", {}),
+                flash_parts=payload.get("flash_parts", []),
+                chip_family=payload.get("chip_family", ""),
                 log_path=payload.get("log_path", ""),
                 error=payload.get("error", ""),
                 platformio_cmd=payload.get("platformio_cmd", ""),
@@ -359,6 +364,26 @@ class BuildManager:
         with self.lock:
             return self.jobs.get(build_hash)
 
+    def ensure_flash_parts(self, metadata: BuildMetadata) -> list[dict[str, str]]:
+        if metadata.flash_parts or metadata.status != "ready":
+            return metadata.flash_parts
+
+        request = BuildRequest.from_payload(metadata.request)
+        request.hash = metadata.hash
+        flash_parts = self._build_flash_parts(request, metadata.artifact_files)
+        if not flash_parts:
+            return []
+
+        with self.lock:
+            current = self.jobs.get(metadata.hash)
+            if current is None:
+                return flash_parts
+            current.flash_parts = flash_parts
+            if not current.chip_family:
+                current.chip_family = self._chip_family_for_env(request.env)
+            self._persist(current)
+            return current.flash_parts
+
     def submit(self, request: BuildRequest) -> BuildMetadata:
         with self.lock:
             existing = self.jobs.get(request.hash)
@@ -373,6 +398,7 @@ class BuildManager:
                 updated_at=now,
                 request=request.canonical_payload(),
                 log_path=str(self._log_path(request.hash)),
+                chip_family=self._chip_family_for_env(request.env),
                 platformio_cmd=self.platformio_cmd or "",
             )
             self.jobs[request.hash] = metadata
@@ -465,10 +491,13 @@ class BuildManager:
                 shutil.copy2(source, target)
                 copied_files[kind] = target.name
 
+            flash_parts = self._build_flash_parts(request, copied_files)
+
             with self.lock:
                 metadata = self.jobs[request.hash]
                 metadata.status = "ready"
                 metadata.artifact_files = copied_files
+                metadata.flash_parts = flash_parts
                 metadata.artifact_urls = {}
                 metadata.error = ""
                 self._persist(metadata)
@@ -505,8 +534,80 @@ class BuildManager:
             factory = pio_dir / "firmware-factory.bin"
             if factory.exists():
                 artifacts["factory"] = factory
+        for extra_name, key in (
+            ("bootloader.bin", "bootloader"),
+            ("partitions.bin", "partitions"),
+            ("boot_app0.bin", "boot_app0"),
+        ):
+            extra_path = pio_dir / extra_name
+            if extra_path.exists():
+                artifacts[key] = extra_path
 
         return artifacts
+
+    def _chip_family_for_env(self, env_name: str) -> str:
+        if "ESP32C6" in env_name:
+            return "ESP32-C6"
+        if "ESP32C3" in env_name:
+            return "ESP32-C3"
+        if "ESP32" in env_name:
+            return "ESP32"
+        return "ESP8266"
+
+    def _flash_manifest_parts(self, request: BuildRequest) -> list[tuple[str, str]]:
+        pio_dir = self._work_project_dir(request.hash) / ".pio" / "build" / request.env
+        env_dump = pio_dir / "firmware.env.txt"
+        if not env_dump.exists():
+            return []
+
+        content = env_dump.read_text(encoding="utf-8", errors="replace")
+        extra_images_match = re.search(r"'FLASH_EXTRA_IMAGES':\s*(\[[\s\S]*?\])", content)
+        app_offset_match = re.search(r"'ESP32_APP_OFFSET':\s*'([^']+)'", content)
+        if app_offset_match is None:
+            app_offset_match = re.search(r"'application_offset':\s*'([^']+)'", content)
+
+        parts: list[tuple[str, str]] = []
+        if extra_images_match:
+            try:
+                extra_images = ast.literal_eval(extra_images_match.group(1))
+            except (SyntaxError, ValueError):
+                extra_images = []
+            for offset, path in extra_images:
+                name = Path(path).name
+                if name in {"bootloader.bin", "partitions.bin", "boot_app0.bin"}:
+                    parts.append((name, str(offset)))
+
+        application_kind = "factory" if request.env.startswith("GUI_Generic_ESP32") else "bin"
+        if app_offset_match:
+            parts.append((application_kind, app_offset_match.group(1)))
+        elif not parts:
+            parts.append(("bin", "0x0"))
+
+        return parts
+
+    def _build_flash_parts(self, request: BuildRequest, artifact_files: dict[str, str]) -> list[dict[str, str]]:
+        parts: list[dict[str, str]] = []
+        has_application = False
+        for name, offset in self._flash_manifest_parts(request):
+            filename = artifact_files.get(name)
+            if name == "factory" and not filename:
+                filename = artifact_files.get("bin")
+            elif name == "bin" and not filename:
+                filename = artifact_files.get("factory")
+            if not filename:
+                continue
+            if name in {"bin", "factory"}:
+                has_application = True
+            parts.append({"offset": offset, "artifact": name, "path": filename})
+
+        if parts and has_application:
+            return parts
+
+        fallback_kind = "factory" if "factory" in artifact_files and self._chip_family_for_env(request.env) != "ESP8266" else "bin"
+        filename = artifact_files.get(fallback_kind)
+        if not filename:
+            return []
+        return [{"offset": "0x0", "artifact": fallback_kind, "path": filename}]
 
     def _generate_platformio_ini(self, request: BuildRequest) -> str:
         original = (GUI_GENERIC_DIR / "platformio.ini").read_text(encoding="utf-8")
@@ -549,9 +650,8 @@ class BuildManager:
                 compact_template = json.dumps(json.loads(request.template_json), separators=(",", ":"))
             except json.JSONDecodeError:
                 compact_template = " ".join(request.template_json.split())
-            escaped_template = compact_template.replace("\\", "\\\\").replace('"', '\\"')
             flags.append("-D TEMPLATE_BOARD_JSON")
-            flags.append(f'-D TEMPLATE_JSON="\\"{escaped_template}\\""')
+            flags.append(f'-D TEMPLATE_JSON=\'R"json({compact_template})json"\'')
 
         for option_id in request.selected_options:
             flags.append(f"-D {option_id}")
@@ -583,6 +683,19 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/builds":
             json_response(self, HTTPStatus.OK, {"items": self.app.manager.list_builds()})
+            return
+
+        if parsed.path.startswith("/api/builds/") and parsed.path.endswith("/manifest"):
+            build_hash = parsed.path.strip("/").split("/")[2]
+            metadata = self.app.manager.get(build_hash)
+            if metadata is None:
+                json_response(self, HTTPStatus.NOT_FOUND, {"error": "Nie znaleziono builda"})
+                return
+            manifest = self.app.install_manifest(build_hash, metadata)
+            if manifest is None:
+                json_response(self, HTTPStatus.BAD_REQUEST, {"error": "Manifest instalacyjny jest niedostępny dla tego builda"})
+                return
+            json_response(self, HTTPStatus.OK, manifest)
             return
 
         if parsed.path.startswith("/api/builds/"):
@@ -710,6 +823,43 @@ class BuilderApplication:
 
     def compatibility_url(self, build_hash: str) -> str:
         return f"{self.public_url}?firmware={build_hash}"
+
+    def install_manifest_url(self, build_hash: str) -> str:
+        return f"{self.public_url}api/builds/{build_hash}/manifest"
+
+    def install_manifest(self, build_hash: str, metadata: BuildMetadata) -> dict[str, Any] | None:
+        if metadata.status != "ready" or not metadata.flash_parts:
+            return None
+
+        parts = []
+        for part in metadata.flash_parts:
+            filename = part.get("path", "")
+            if not filename:
+                continue
+            parts.append(
+                {
+                    "path": f"{self.public_url}artifacts/{build_hash}/{filename}",
+                    "offset": part.get("offset", "0x0"),
+                }
+            )
+
+        if not parts:
+            return None
+
+        request = metadata.request or {}
+        name = request.get("custom_name") or request.get("template_name") or build_hash
+        version = request.get("build_version") or "dev"
+        return {
+            "name": f"SUPLA GUI Generic: {name}",
+            "version": version,
+            "home_assistant_domain": "supla",
+            "builds": [
+                {
+                    "chipFamily": metadata.chip_family or "ESP8266",
+                    "parts": parts,
+                }
+            ],
+        }
 
     def log_tail(self, path: Path, lines: int = 80) -> str:
         content = path.read_text(encoding="utf-8", errors="replace").splitlines()

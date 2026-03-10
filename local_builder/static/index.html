@@ -156,11 +156,44 @@
             <span>Adres OTA</span>
             <input id="otaUrl" type="text" readonly placeholder="pojawi się po buildzie">
           </label>
+          <div class="install-cta">
+            <button id="downloadFirmwareButton" class="ghost" type="button">Zapisz na dysku</button>
+            <button id="installFirmwareButton" class="ghost" type="button">Zainstaluj</button>
+          </div>
           <div class="install-actions">
+            <div id="webInstallWrap" class="web-install-wrap"></div>
             <button id="copyOtaButton" class="ghost" type="button">Kopiuj OTA</button>
             <button id="openOtaButton" class="ghost" type="button">Otwórz OTA</button>
           </div>
+          <p id="webInstallHint" class="install-note">
+            Instalacja z przeglądarki działa przez Web Serial w Chromium i wymaga połączenia HTTP localhost albo HTTPS.
+          </p>
           <div id="installArtifacts" class="install-artifacts"></div>
+          <div class="flash-config">
+            <strong>SPI Flash Config</strong>
+            <ul>
+              <li>Crystal Freq: <code>26MHz</code></li>
+              <li>SPI Speed: <code>40MHz</code></li>
+              <li>SPI Mode: <code>DOUT</code></li>
+              <li>Flash size ESP82xx: <code>8Mbit</code></li>
+              <li>Flash size ESP32: <code>32Mbit</code></li>
+              <li><code>8Mbit = 1MB</code></li>
+            </ul>
+          </div>
+          <div class="install-steps">
+            <strong>Jak zainstalować</strong>
+            <ol>
+              <li>OTA: skopiuj link powyżej i otwórz go na urządzeniu podłączonym do tej samej sieci, aby wgrać firmware bez kabli.</li>
+              <li>Flash lokalny: pobierz odpowiednie bin/factory, podłącz urządzenie po USB i użyj `esptool.py`/`esp-web-tools` z podanymi offsetami.</li>
+              <li>Dla ESP8266/ESP8285 zalecany jest bin, dla ESP32 używaj factory przy pierwszym flashu.</li>
+            </ol>
+          </div>
+          <div class="install-tips">
+            <strong>Przykład komendy esptool.py (ESP32)</strong>
+            <pre>esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 460800 write_flash -z \
+  0x1000 bootloader.bin 0x8000 partitions.bin 0x10000 firmware.bin</pre>
+            <p>W Chrome/Edge skorzystaj z przycisku Web Install — prześle manifest z offsetami i automatycznie odpala <code>esp-web-tools</code>.</p>
+          </div>
           <p class="install-note">
             Dla ESP8266/ESP8285 pobierz zwykle <code>bin</code>. Dla ESP32 korzystaj z <code>factory</code>, jeśli chcesz pierwszy flash przez UART.
           </p>
@@ -211,5 +244,6 @@
   </template>
 
   <script src="/app.js"></script>
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 </body>
 </html>

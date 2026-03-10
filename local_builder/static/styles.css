@@ -303,8 +303,21 @@ button.ghost {
 
 .install-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-top: 12px;
+}
+
+.web-install-wrap {
+  flex: 1 1 220px;
+}
+
+.web-install-wrap esp-web-install-button {
+  width: 100%;
+}
+
+.web-install-wrap[hidden] {
+  display: none;
 }
 
 .install-artifacts {
@@ -325,6 +338,95 @@ button.ghost {
   background: rgba(13, 124, 102, 0.08);
   color: var(--accent-strong);
   font-weight: 600;
+}
+
+.flash-config {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(13, 124, 102, 0.12);
+  background: rgba(13, 124, 102, 0.05);
+}
+
+.flash-config strong {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.flash-config ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.flash-config li + li {
+  margin-top: 6px;
+}
+
+.install-steps {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(13, 124, 102, 0.12);
+  background: rgba(13, 124, 102, 0.05);
+}
+
+.install-steps strong {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.install-steps ol {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.install-steps li + li {
+  margin-top: 6px;
+}
+
+.install-steps button {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.install-cta {
+  margin-top: 12px;
+  display: flex;
+  gap: 12px;
+}
+
+.install-cta button {
+  flex: 1;
+}
+
+.install-tips {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(13, 124, 102, 0.12);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.install-tips strong {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.install-tips pre {
+  margin: 0;
+  font-size: 13px;
+  background: rgba(28, 42, 47, 0.05);
+  border-radius: 12px;
+  padding: 10px;
+  overflow-x: auto;
+}
+
+.install-tips p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .install-note {

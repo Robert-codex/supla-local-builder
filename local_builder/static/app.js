@@ -4,6 +4,8 @@ const state = {
   currentBuildHash: "",
   pollTimer: null,
   envFamilies: [],
+  preferredDownloadUrl: "",
+  webInstallButton: null,
 };
 
 const DUAL_R3_PM_TEMPLATE_NAME = "Sonoff Dual R3 Power Monitoring";
@@ -161,6 +163,10 @@ const els = {
   otaUrl: document.getElementById("otaUrl"),
   copyOtaButton: document.getElementById("copyOtaButton"),
   openOtaButton: document.getElementById("openOtaButton"),
+  downloadFirmwareButton: document.getElementById("downloadFirmwareButton"),
+  installFirmwareButton: document.getElementById("installFirmwareButton"),
+  webInstallWrap: document.getElementById("webInstallWrap"),
+  webInstallHint: document.getElementById("webInstallHint"),
   installArtifacts: document.getElementById("installArtifacts"),
   buildHistory: document.getElementById("buildHistory"),
   featuredDevices: document.getElementById("featuredDevices"),
@@ -855,12 +861,63 @@ function renderAll() {
   renderDeviceGroups();
 }
 
+function currentInstallManifestUrl(payload) {
+  if (!payload?.hash) {
+    return "";
+  }
+  return `${state.config.public_url}api/builds/${payload.hash}/manifest`;
+}
+
+function webInstallSupported() {
+  return "serial" in navigator && (window.isSecureContext || window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+}
+
+function renderWebInstallButton(payload) {
+  els.webInstallWrap.innerHTML = "";
+  els.webInstallWrap.hidden = true;
+  state.webInstallButton = null;
+
+  if (!payload?.hash || payload.status !== "ready") {
+    els.webInstallHint.textContent = "Instalacja z przeglądarki działa przez Web Serial w Chromium i wymaga połączenia HTTP localhost albo HTTPS.";
+    return;
+  }
+
+  if (!webInstallSupported()) {
+    els.webInstallHint.textContent = "Ta przeglądarka albo kontekst strony nie obsługuje Web Serial. Użyj Chrome lub Edge na localhost/HTTPS albo pobierz pliki poniżej.";
+    return;
+  }
+
+  const manifestUrl = currentInstallManifestUrl(payload);
+  const button = document.createElement("esp-web-install-button");
+  button.setAttribute("manifest", manifestUrl);
+  button.setAttribute("install-supported", "");
+  els.webInstallWrap.appendChild(button);
+  els.webInstallWrap.hidden = false;
+  state.webInstallButton = button;
+  els.webInstallHint.textContent = "Przycisk Zainstaluj wykrywa port szeregowy i wgrywa gotowy build bez ręcznego doboru offsetów.";
+}
+
+function updateInstallButtons(payload) {
+  const ready = Boolean(payload?.status === "ready");
+  const downloadEnabled = ready && Boolean(state.preferredDownloadUrl);
+  const installEnabled = ready && Boolean(els.otaUrl.value);
+  if (els.downloadFirmwareButton) {
+    els.downloadFirmwareButton.disabled = !downloadEnabled;
+  }
+  if (els.installFirmwareButton) {
+    els.installFirmwareButton.disabled = !installEnabled;
+  }
+}
+
 function renderInstallPanel(payload) {
   if (!payload || !payload.hash) {
     els.installBadge.textContent = "brak builda";
     els.installSummary.textContent = "Po udanym buildzie pojawią się tutaj linki OTA i pliki firmware do pobrania.";
     els.otaUrl.value = "";
     els.installArtifacts.innerHTML = "";
+    state.preferredDownloadUrl = "";
+    renderWebInstallButton(null);
+    updateInstallButtons(null);
     return;
   }
 
@@ -880,6 +937,9 @@ function renderInstallPanel(payload) {
   els.installArtifacts.innerHTML = Object.entries(links).map(([kind, url]) => (
     `<a href="${encodeURI(url)}" target="_blank" rel="noreferrer">Pobierz ${escapeHtml(kind)}</a>`
   )).join("");
+  state.preferredDownloadUrl = links.factory || links.bin || links.gz || Object.values(links)[0] || "";
+  renderWebInstallButton(payload);
+  updateInstallButtons(payload);
 }
 
 function selectedTemplateJson() {
@@ -1053,6 +1113,20 @@ async function bootstrap() {
   els.openOtaButton.addEventListener("click", () => {
     if (els.otaUrl.value) {
       window.open(els.otaUrl.value, "_blank", "noopener,noreferrer");
+    }
+  });
+  els.installFirmwareButton?.addEventListener("click", () => {
+    if (state.webInstallButton) {
+      state.webInstallButton.click();
+      return;
+    }
+    if (els.otaUrl.value) {
+      window.open(els.otaUrl.value, "_blank", "noopener,noreferrer");
+    }
+  });
+  els.downloadFirmwareButton?.addEventListener("click", () => {
+    if (state.preferredDownloadUrl) {
+      window.open(state.preferredDownloadUrl, "_blank", "noopener,noreferrer");
     }
   });
   els.buildButton.addEventListener("click", triggerBuild);
