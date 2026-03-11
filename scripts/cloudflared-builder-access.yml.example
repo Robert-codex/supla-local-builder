@@ -1,0 +1,16 @@
+tunnel: 413e4161-79f7-41ff-8354-fd2b462cdab2
+credentials-file: /home/langnet/.cloudflared/413e4161-79f7-41ff-8354-fd2b462cdab2.json
+
+ingress:
+  - hostname: builder.regnal.eu
+    service: https://127.0.0.1:8181
+    originRequest:
+      originServerName: builder.regnal.eu
+      caPool: /home/langnet/Projekty/Supla/local_builder/data/certs/local-builder-ca.crt
+      noTLSVerify: false
+      access:
+        required: true
+        teamName: REPLACE_WITH_CLOUDFLARE_TEAM_NAME
+        audTag:
+          - REPLACE_WITH_ACCESS_APPLICATION_AUD
+  - service: http_status:404

@@ -84,10 +84,13 @@ https://builder.regnal.eu/
 Pliki użyte w aktualnej konfiguracji:
 
 - [cloudflared-builder.yml](/home/langnet/Projekty/Supla/scripts/cloudflared-builder.yml)
+- [cloudflared-builder-access.yml.example](/home/langnet/Projekty/Supla/scripts/cloudflared-builder-access.yml.example)
 - [cloudflared-builder.service](/home/langnet/Projekty/Supla/scripts/cloudflared-builder.service)
 - [local_builder.service](/home/langnet/Projekty/Supla/scripts/local_builder.service)
 
 Lokalny builder działa jako origin tylko na `127.0.0.1:8181`, a publiczny ruch HTTPS obsługuje Cloudflare Tunnel pod `builder.regnal.eu`.
+
+Jeżeli hostname ma być chroniony, nie zostawiaj samego tunelu bez Access. Gotowy wariant utwardzony z `Cloudflare Access`, lokalną walidacją JWT w `cloudflared` i HTTPS do originu jest opisany w [cloudflare-tunnel-hardening.md](/home/langnet/Projekty/Supla/docs/cloudflare-tunnel-hardening.md).
 
 Podstawowe komendy utrzymaniowe:
 

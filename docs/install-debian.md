@@ -135,6 +135,17 @@ Po stronie `systemd` możesz użyć osobnej usługi dla `cloudflared`, analogicz
 - [cloudflared-builder.service](/home/langnet/Projekty/Supla/scripts/cloudflared-builder.service)
 - [cloudflared-builder.yml](/home/langnet/Projekty/Supla/scripts/cloudflared-builder.yml)
 
+Jeżeli builder ma być wystawiony publicznie, zalecany wariant produkcyjny to:
+
+- `Cloudflare Access` przed `builder.regnal.eu`
+- `Protect with Access` w `cloudflared`
+- HTTPS także na odcinku `cloudflared -> local builder`
+
+Gotowy przykład konfiguracji i runbook wdrożenia są w:
+
+- [cloudflared-builder-access.yml.example](/home/langnet/Projekty/Supla/scripts/cloudflared-builder-access.yml.example)
+- [cloudflare-tunnel-hardening.md](/home/langnet/Projekty/Supla/docs/cloudflare-tunnel-hardening.md)
+
 Status:
 
 ```bash
