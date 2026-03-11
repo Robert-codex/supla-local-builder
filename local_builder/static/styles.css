@@ -140,6 +140,14 @@ label span {
   color: var(--muted);
 }
 
+.field-note {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 input,
 select,
 textarea,
@@ -434,6 +442,26 @@ button.ghost {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.programmer-panel {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.programmer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.programmer-panel .install-note {
+  margin-top: 10px;
 }
 
 .devices-panel {

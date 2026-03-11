@@ -136,6 +136,10 @@ const FEATURED_DEVICE_PRESETS = [
   },
 ];
 
+function usingCustomTemplateJson() {
+  return Boolean(els.templateJson?.value.trim());
+}
+
 const els = {
   catalogVersion: document.getElementById("catalogVersion"),
   publicUrl: document.getElementById("publicUrl"),
@@ -340,14 +344,28 @@ function applyDevicePreset(preset) {
   renderAll();
 }
 
+function isPresetAvailable(preset) {
+  if (preset.env && !state.config.envs.includes(preset.env)) {
+    return false;
+  }
+  if (preset.templateName && !state.config.templates.some((item) => item.NAME === preset.templateName)) {
+    return false;
+  }
+  if (preset.selectedOptions?.some((optionId) => !state.config.options[optionId])) {
+    return false;
+  }
+  return true;
+}
+
 function renderFeaturedDevices() {
   const search = els.deviceSearch.value.trim().toLowerCase();
   const items = FEATURED_DEVICE_PRESETS.filter((preset) => (
+    isPresetAvailable(preset) && (
     !search ||
     preset.name.toLowerCase().includes(search) ||
     preset.description.toLowerCase().includes(search) ||
     preset.chips.some((chip) => chip.toLowerCase().includes(search))
-  ));
+  )));
 
   if (!items.length) {
     els.featuredDevices.innerHTML = "";
@@ -428,11 +446,6 @@ function renderDeviceGroups() {
       }
       renderTemplateSelect(templateName);
       els.templateSelect.value = templateName;
-      if (!els.templateJson.value.trim()) {
-        if (template) {
-          els.templateJson.value = JSON.stringify(template, null, 2);
-        }
-      }
       renderAll();
     });
   });
@@ -807,7 +820,7 @@ function renderOptions() {
 
 function renderSummary() {
   const selectedList = [...state.selected].sort();
-  const templateName = els.templateSelect.value || "brak";
+  const templateName = usingCustomTemplateJson() ? "własny JSON" : (els.templateSelect.value || "brak");
   const hardwarePreset = currentDualR3Preset()?.label || els.hardwarePreset.value || "brak";
   const meterChip = isDualR3PresetActive() ? els.meterChip.value : "brak";
   els.selectionSummary.innerHTML = `
@@ -1152,6 +1165,15 @@ async function fetchBuildDetails(hash) {
   return payload;
 }
 
+function openBuildHistoryCard(card) {
+  if (!card?.dataset.hash) {
+    return;
+  }
+  fetchBuildDetails(card.dataset.hash).catch((error) => {
+    els.buildStatus.textContent = `Nie udało się wczytać builda: ${error.message || String(error)}`;
+  });
+}
+
 async function pollBuild(hash) {
   const payload = await fetchBuildDetails(hash);
   if (payload.status === "queued" || payload.status === "building") {
@@ -1278,16 +1300,7 @@ async function bootstrap() {
   [els.meterRxPin, els.meterTxPin, els.meterCfPin, els.meterCf1Pin, els.meterSelPin].forEach((input) => {
     input.addEventListener("input", renderSummary);
   });
-  els.templateSelect.addEventListener("change", () => {
-    const selectedName = els.templateSelect.value;
-    if (!els.templateJson.value.trim() && selectedName) {
-      const template = state.config.templates.find((item) => item.NAME === selectedName);
-      if (template) {
-        els.templateJson.value = JSON.stringify(template, null, 2);
-      }
-    }
-    renderSummary();
-  });
+  els.templateSelect.addEventListener("change", renderSummary);
   els.templateJson.addEventListener("input", renderSummary);
   els.envSelect.addEventListener("change", renderSummary);
   els.copyOtaButton.addEventListener("click", async () => {
@@ -1319,9 +1332,18 @@ async function bootstrap() {
     if (!card) {
       return;
     }
-    fetchBuildDetails(card.dataset.hash).catch((error) => {
-      els.buildStatus.textContent = `Nie udało się wczytać builda: ${error.message || String(error)}`;
-    });
+    openBuildHistoryCard(card);
+  });
+  els.buildHistory.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    const card = event.target.closest("[data-hash]");
+    if (!card) {
+      return;
+    }
+    event.preventDefault();
+    openBuildHistoryCard(card);
   });
 
   if ("serial" in navigator && typeof navigator.serial.addEventListener === "function") {

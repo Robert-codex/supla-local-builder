@@ -18,10 +18,11 @@ Przy świeżym klonie uruchom:
 
 ```bash
 git submodule update --init --recursive
-./scripts/apply_gui_generic_patches.sh
 ```
 
-To pobiera upstream `GUI-Generic` i nakłada lokalne zmiany dla MQTT, Zigbee gateway i lokalnego buildera OTA.
+To pobiera `GUI-Generic` dokładnie do commita śledzonego przez to repo, razem z lokalnymi zmianami dla MQTT, buildera OTA i dodatkowych presetów/liczników energii.
+
+Skrypt `./scripts/apply_gui_generic_patches.sh` zostaje jako ścieżka awaryjna, gdy świadomie przełączysz submodule na czysty upstream `GUI-Generic` bez lokalnej gałęzi patchy.
 
 Aktualny model utrzymania lokalnych zmian w submodule:
 
@@ -192,7 +193,6 @@ git clone https://github.com/Robert-codex/supla-local-builder.git
 cd supla-local-builder
 
 git submodule update --init --recursive
-./scripts/apply_gui_generic_patches.sh
 ./scripts/install_local_builder.sh
 
 export LOCAL_BUILDER_PUBLIC_URL="http://IP_TWOJEGO_HOSTA:8181/"

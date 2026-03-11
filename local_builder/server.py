@@ -31,6 +31,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 DATA_DIR = Path(__file__).resolve().parent / "data"
 BUILDS_DIR = DATA_DIR / "builds"
 WORK_DIR = DATA_DIR / "work"
+HIDDEN_OPTION_IDS = {"SUPLA_ZIGBEE_GATEWAY"}
 
 LOCAL_TEMPLATE_BOARDS = [
     {
@@ -59,7 +60,8 @@ def json_response(handler: BaseHTTPRequestHandler, status: int, payload: Any) ->
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
-    handler.wfile.write(body)
+    if handler.command != "HEAD":
+        handler.wfile.write(body)
 
 
 def text_response(handler: BaseHTTPRequestHandler, status: int, payload: str) -> None:
@@ -68,7 +70,8 @@ def text_response(handler: BaseHTTPRequestHandler, status: int, payload: str) ->
     handler.send_header("Content-Type", "text/plain; charset=utf-8")
     handler.send_header("Content-Length", str(len(body)))
     handler.end_headers()
-    handler.wfile.write(body)
+    if handler.command != "HEAD":
+        handler.wfile.write(body)
 
 
 def guess_mime(path: Path) -> str:
@@ -278,6 +281,41 @@ def replace_multiline_option(content: str, section: str, option: str, new_lines:
     return "\n".join(output) + "\n"
 
 
+def read_multiline_option(content: str, section: str, option: str) -> list[str]:
+    lines = content.splitlines()
+    in_section = False
+    collecting = False
+    values: list[str] = []
+
+    def option_line(value: str) -> bool:
+        return value.startswith(f"{option} =") or value.startswith(f"{option}=")
+
+    for line in lines:
+        stripped = line.strip()
+
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if in_section and collecting:
+                break
+            in_section = stripped == f"[{section}]"
+            collecting = False
+            continue
+
+        if not in_section:
+            continue
+
+        if collecting:
+            if stripped and not line[:1].isspace() and not stripped.startswith((";", "#")):
+                break
+            if stripped and not stripped.startswith((";", "#")):
+                values.append(stripped)
+            continue
+
+        if option_line(stripped):
+            collecting = True
+
+    return values
+
+
 @dataclass
 class BuildRequest:
     env: str
@@ -385,6 +423,8 @@ class BuilderCatalog:
         result: dict[str, dict[str, Any]] = {}
         for section in self.section_keys:
             for option_id, meta in self.builder_data.get(section, {}).items():
+                if option_id in HIDDEN_OPTION_IDS:
+                    continue
                 result[option_id] = {"section": section, **meta}
         return result
 
@@ -813,8 +853,10 @@ class BuildManager:
         patched = replace_multiline_option(original, "common", "build_flags", build_lines)
 
         extra_libs = self._compose_extra_libs(request)
-        if extra_libs:
-            lib_lines = ["lib_deps ="] + [f"    {line}" for line in extra_libs]
+        existing_libs = read_multiline_option(patched, f"env:{request.env}", "lib_deps")
+        merged_libs = list(dict.fromkeys([*existing_libs, *extra_libs]))
+        if merged_libs:
+            lib_lines = ["lib_deps ="] + [f"    {line}" for line in merged_libs]
             patched = replace_multiline_option(patched, f"env:{request.env}", "lib_deps", lib_lines)
 
         return patched
@@ -928,6 +970,9 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
 
         self.serve_static(parsed.path)
 
+    def do_HEAD(self) -> None:  # noqa: N802
+        self.do_GET()
+
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         content_length = int(self.headers.get("Content-Length", "0"))
@@ -947,6 +992,7 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
             request.template_json = self.app.catalog.resolve_template_json(request.template_name)
         if not request.public_builder_url:
             request.public_builder_url = self.app.public_url
+        request.selected_options = [option_id for option_id in request.selected_options if option_id in self.app.catalog.option_index]
         request.hash = request.compute_hash()
         if request.env not in self.app.catalog.envs:
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": "Nieznane środowisko kompilacji"})
@@ -1002,7 +1048,8 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
         if path.suffix in {".bin", ".gz"}:
             self.send_header("Content-Disposition", f'attachment; filename="{path.name}"')
         self.end_headers()
-        self.wfile.write(data)
+        if self.command != "HEAD":
+            self.wfile.write(data)
 
     def serve_static(self, path: str) -> None:
         route = path if path not in {"", "/"} else "/index.html"

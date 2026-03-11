@@ -60,30 +60,150 @@ index 36b76a3b..459e40ba 100644
  			"libs": "Z2S_Library",
  			"opts": "CORE_DEBUG_LEVEL=5,ARDUINO_ESP32C6_DEV,ARDUINO_USB_MODE=1,ZIGBEE_MODE_ZCZR,esp_zb_api_zczr,esp_zb_cli_command,zboss_stack.zczr,zboss_port",
  			"en": {
+diff --git a/lib/Z2S_Library/library.properties b/lib/Z2S_Library/library.properties
+index e1443adb..8db6f470 100644
+--- a/lib/Z2S_Library/library.properties
++++ b/lib/Z2S_Library/library.properties
+@@ -1,2 +1,3 @@
+ name=Z2S_Library
+-platforms=esp32:esp32
+\ No newline at end of file
++version=0.1.0
++architectures=esp32
+diff --git a/lib/Z2S_Library/src/Z2S_Devices_Table.cpp b/lib/Z2S_Library/src/Z2S_Devices_Table.cpp
+index 7ac58f7c..25b8099d 100644
+--- a/lib/Z2S_Library/src/Z2S_Devices_Table.cpp
++++ b/lib/Z2S_Library/src/Z2S_Devices_Table.cpp
+@@ -5,6 +5,8 @@
+ #include "Z2S_Device_Tyua_Hvac.h"
+ 
+ #include <SuplaDevice.h>
++#include <supla/storage/config.h>
++#include <supla/storage/storage.h>
+ #include <supla/sensor/virtual_therm_hygro_meter.h>
+ #include <supla/sensor/one_phase_electricity_meter.h>
+ #include <supla/control/virtual_relay.h>
+diff --git a/lib/Z2S_Library/src/Z2S_control/Z2S_virtual_relay.cpp b/lib/Z2S_Library/src/Z2S_control/Z2S_virtual_relay.cpp
+index 84ffe92b..e1ee43fe 100644
+--- a/lib/Z2S_Library/src/Z2S_control/Z2S_virtual_relay.cpp
++++ b/lib/Z2S_Library/src/Z2S_control/Z2S_virtual_relay.cpp
+@@ -18,6 +18,7 @@
+ #include "Z2S_virtual_relay.h"
+ 
+ #include <supla/log_wrapper.h>
++#include <supla/storage/storage.h>
+ 
+ #include <supla/time.h>
+ 
+@@ -97,4 +98,4 @@ void Supla::Control::Z2S_VirtualRelay::Z2S_setOnOff(bool on_off_state) {
+   Supla::Storage::ScheduleSave(5000);
+ }
+ 
+-//#endif
+\ No newline at end of file
++//#endif
 diff --git a/platformio.ini b/platformio.ini
-index 8a9446ff..e6769231 100644
+index 8a9446ff..1ab54b85 100644
 --- a/platformio.ini
 +++ b/platformio.ini
-@@ -225,6 +225,7 @@ lib_deps =
-     Z2S_Library
+@@ -97,8 +97,6 @@ build_flags =
+                 ; -D SUPLA_INA219
+ 
+ [env]
+-;lib_ignore = 
+-;    Z2S_Library
+ extra_scripts = tools/copy_files.py       
+ 
+ [esp82xx_common]
+@@ -107,6 +105,8 @@ platform = espressif8266@^4.2.1
+ upload_speed = 256000
+ monitor_speed = 115200
+ upload_resetmethod = nodemcu
++lib_ignore =
++                Z2S_Library
+ board_build.flash_mode = dout
+ ;set frequency to 160MHz
+ board_build.f_cpu = 160000000L
+@@ -197,6 +197,8 @@ platform = https://github.com/pioarduino/platform-espressif32/releases/download/
+ board = esp32dev
+ framework = arduino
+ monitor_speed = 115200
++lib_ignore =
++    Z2S_Library
+ board_build.partitions = min_spiffs.csv
+ build_flags =   ${common.build_flags}
+ 
+@@ -207,6 +209,8 @@ platform_packages =
+ framework = arduino
+ board = esp32-c3-devkitm-1
+ monitor_speed = 115200
++lib_ignore =
++    Z2S_Library
+ board_build.partitions = min_spiffs.csv
+ build_flags =
+     ${common.build_flags}
+@@ -222,9 +226,10 @@ board_build.partitions = partitions/custom_zigbee_zczr.csv
+ lib_ignore = 
+     ${common_no_libs.lib_ignore}
+ lib_deps =
+-    Z2S_Library
++    lib/Z2S_Library
  build_flags = 
      ${common.build_flags}
 +    -D SUPLA_ZIGBEE_GATEWAY
      -D CORE_DEBUG_LEVEL=5
      -D ARDUINO_ESP32C6_DEV
      ;-D ARDUINO_USB_MODE=1
-@@ -316,4 +317,4 @@ lib_ignore =
+@@ -266,7 +271,6 @@ lib_ignore =
+     WakeOnLan
+     Wire
+     wmbus
+-    Z2S_Library
+     ClosedCube HDC1080
+     MS5611
+     Adafruit_VL53L0X
+@@ -286,6 +290,7 @@ board_build.partitions = min_spiffs.csv
+ ;    ${common_no_libs.lib_ignore}
+ lib_ignore = 
      ${common_no_libs.lib_ignore}
++    Z2S_Library
+ build_flags =
+     ${common.build_flags}
+ lib_ldf_mode = chain+
+@@ -300,6 +305,7 @@ monitor_speed = 115200
+ board_build.partitions = min_spiffs.csv
+ lib_ignore = 
+     ${common_no_libs.lib_ignore}
++    Z2S_Library
+ build_flags =
+     ${common.build_flags}
+ lib_ldf_mode = chain+
+@@ -314,6 +320,7 @@ monitor_speed = 115200
+ board_build.ldscript = eagle.flash.1m64.ld
+ lib_ignore = 
+     ${common_no_libs.lib_ignore}
++    Z2S_Library
  build_flags =
      ${common.build_flags}
 -lib_ldf_mode = chain+
 \ No newline at end of file
 +lib_ldf_mode = chain+
 diff --git a/src/GUI-Generic.ino b/src/GUI-Generic.ino
-index e9f52de2..125d34aa 100644
+index e9f52de2..320ece1b 100644
 --- a/src/GUI-Generic.ino
 +++ b/src/GUI-Generic.ino
-@@ -62,6 +62,10 @@ void setup() {
+@@ -45,6 +45,10 @@ extern "C" {
+ #include "src/sensor/WmbusMeter.h"
+ #endif
+ 
++#ifdef SUPLA_ZIGBEE_GATEWAY
++#include "src/zigbee/SuplaZigbeeGateway.h"
++#endif
++
+ uint32_t last_loop{0};
+ #define LOOP_INTERVAL 16
+ 
+@@ -62,6 +66,10 @@ void setup() {
    new Supla::boneIO();
  #endif
  
@@ -94,7 +214,7 @@ index e9f52de2..125d34aa 100644
  #ifdef GUI_SENSOR_I2C_EXPENDER
    Expander = new Supla::Control::ConfigExpander();
  #endif
-@@ -495,6 +499,12 @@ void setup() {
+@@ -495,6 +503,12 @@ void setup() {
    }
  #endif
  
@@ -107,7 +227,7 @@ index e9f52de2..125d34aa 100644
  #ifdef SUPLA_PZEM_V_3
    // Declaration of the ElectricityMeter pointer
    Supla::Sensor::ElectricityMeter *PZEMv3 = nullptr;
-@@ -588,6 +598,15 @@ void setup() {
+@@ -588,6 +602,15 @@ void setup() {
    }
  #endif
  
@@ -123,7 +243,7 @@ index e9f52de2..125d34aa 100644
  #if defined(SUPLA_MODBUS_SDM) || defined(SUPLA_MODBUS_SDM_ONE_PHASE) || defined(SUPLA_MODBUS_SDM_72_V2)
    if (ConfigESP->getGpio(FUNCTION_SDM_RX) != OFF_GPIO && ConfigESP->getGpio(FUNCTION_SDM_TX) != OFF_GPIO) {
  #if defined(SUPLA_MODBUS_SDM)
-@@ -997,6 +1016,10 @@ void loop() {
+@@ -997,6 +1020,10 @@ void loop() {
    const uint32_t now = millis();
    SuplaDevice.iterate();
  
@@ -163,7 +283,7 @@ index 1e607c96..b9ab94b9 100644
  const char* const MEMORY_P[] PROGMEM = {OFF, ON, POSITION_MEMORY};
  
 diff --git a/src/SuplaConfigManager.cpp b/src/SuplaConfigManager.cpp
-index 3c96f7d9..b9773a3e 100644
+index 3c96f7d9..cb9ff298 100644
 --- a/src/SuplaConfigManager.cpp
 +++ b/src/SuplaConfigManager.cpp
 @@ -31,6 +31,20 @@ const char ConfigFileName[] = "/supla-dev.cfg";
@@ -208,13 +328,6 @@ index 3c96f7d9..b9773a3e 100644
  uint8_t SuplaConfigManager::save() {
    if (SPIFFSbegin()) {
      int i = 0;
-@@ -949,4 +977,4 @@ bool SuplaConfigManager::getUInt8(const char *key, uint8_t *result) {
-   return KeyValue::getUInt8(key, result);
- }
- 
--#pragma GCC diagnostic pop
-\ No newline at end of file
-+#pragma GCC diagnostic pop
 diff --git a/src/SuplaConfigManager.h b/src/SuplaConfigManager.h
 index 647fe2ba..5e69f309 100644
 --- a/src/SuplaConfigManager.h
@@ -300,7 +413,7 @@ index 0e566510..e1846f17 100644
  Supla::Sensor::ADE7953 *couterADE7953;
  
 diff --git a/src/SuplaDeviceGUI.h b/src/SuplaDeviceGUI.h
-index dc610b87..24657843 100644
+index dc610b87..dbdb4086 100644
 --- a/src/SuplaDeviceGUI.h
 +++ b/src/SuplaDeviceGUI.h
 @@ -120,6 +120,12 @@
@@ -316,18 +429,15 @@ index dc610b87..24657843 100644
  
  #include "src/control/PinStatusLedGUI.h"
  #include "src/control/Pushover.h"
-@@ -190,6 +196,10 @@
+@@ -190,6 +196,7 @@
  
  #include "src/improv/improv_serial_component.h"
  #include "src/network/SuplaGuiWiFi.h"
 +#include "src/network/SuplaGuiMqtt.h"
-+#ifdef SUPLA_ZIGBEE_GATEWAY
-+#include "src/zigbee/SuplaZigbeeGateway.h"
-+#endif
  
  #ifdef SUPLA_VINDRIKTNING_IKEA_KPOP
  #include "src/sensor/VindriktningIkea.h"
-@@ -366,6 +376,16 @@ extern Supla::Sensor::CSE_7766 *counterCSE7766;
+@@ -366,6 +373,16 @@ extern Supla::Sensor::CSE_7766 *counterCSE7766;
  void addCSE7766(int8_t pinRX);
  #endif
  
@@ -528,6 +638,572 @@ index 37dd9225..e44d1fa2 100644
  #define S_ADE7953                        "ADE7953"
  #define S_MAX44009                       "MAX44009"
  #define S_GPIO                           "GPIO"
+diff --git a/src/src/network/SuplaGuiMqtt.cpp b/src/src/network/SuplaGuiMqtt.cpp
+new file mode 100644
+index 00000000..d8934582
+--- /dev/null
++++ b/src/src/network/SuplaGuiMqtt.cpp
+@@ -0,0 +1,3 @@
++#include "SuplaGuiMqtt.h"
++
++MqttClient::MqttClient(SuplaDeviceClass *device) : device(device) {}
+diff --git a/src/src/network/SuplaGuiMqtt.h b/src/src/network/SuplaGuiMqtt.h
+new file mode 100644
+index 00000000..781313bd
+--- /dev/null
++++ b/src/src/network/SuplaGuiMqtt.h
+@@ -0,0 +1,14 @@
++#ifndef SuplaGuiMqtt_h
++#define SuplaGuiMqtt_h
++
++#include <SuplaDevice.h>
++
++class MqttClient {
++ public:
++  explicit MqttClient(SuplaDeviceClass *device);
++
++ private:
++  SuplaDeviceClass *device = nullptr;
++};
++
++#endif  // SuplaGuiMqtt_h
+diff --git a/src/src/sensor/BL_0930.cpp b/src/src/sensor/BL_0930.cpp
+new file mode 100644
+index 00000000..1faacd14
+--- /dev/null
++++ b/src/src/sensor/BL_0930.cpp
+@@ -0,0 +1,128 @@
++#ifdef SUPLA_BL0930
++
++#include "BL_0930.h"
++
++namespace Supla {
++namespace Sensor {
++
++BL_0930 *BL_0930::instance = nullptr;
++
++BL_0930::BL_0930(int8_t pinCF) : pinCF(pinCF) {
++  instance = this;
++}
++
++void BL_0930::onInit() {
++  extChannel.setFlag(SUPLA_CHANNEL_FLAG_CALCFG_RESET_COUNTERS);
++  pinMode(pinCF, INPUT);
++  pulseOffset = pulseCount;
++  attachInterrupt(pinCF, onPulse, FALLING);
++  readValuesFromDevice();
++  updateChannelValues();
++}
++
++void BL_0930::readValuesFromDevice() {
++  uint32_t localPulseCount = 0;
++  uint32_t localLastPulseUs = 0;
++  uint32_t localPulsePeriodUs = 0;
++
++  noInterrupts();
++  localPulseCount = pulseCount;
++  localLastPulseUs = lastPulseUs;
++  localPulsePeriodUs = pulsePeriodUs;
++  interrupts();
++
++  if (pulseConstant == 0) {
++    pulseConstant = 3200;
++  }
++
++  energy = energyBase + ((static_cast<uint64_t>(localPulseCount - pulseOffset) * 100000ULL) / pulseConstant);
++
++  double activePower = 0;
++  uint32_t nowUs = micros();
++  if (localPulsePeriodUs > 0 && static_cast<uint32_t>(nowUs - localLastPulseUs) < (localPulsePeriodUs * 3UL + 500000UL)) {
++    activePower = 3600000000000.0 / (static_cast<double>(pulseConstant) * static_cast<double>(localPulsePeriodUs));
++  }
++
++  setVoltage(0, 0);
++  setCurrent(0, 0);
++  setPowerActive(0, activePower * 100000.0);
++  setPowerApparent(0, 0);
++  setPowerReactive(0, 0);
++  setPowerFactor(0, 0);
++  setFwdActEnergy(0, energy);
++}
++
++void BL_0930::onSaveState() {
++  Supla::Storage::WriteState(reinterpret_cast<unsigned char *>(&energy), sizeof(energy));
++  Supla::Storage::WriteState(reinterpret_cast<unsigned char *>(&pulseConstant), sizeof(pulseConstant));
++}
++
++void BL_0930::onLoadState() {
++  if (Supla::Storage::ReadState(reinterpret_cast<unsigned char *>(&energy), sizeof(energy))) {
++    setCounter(energy);
++  }
++
++  Supla::Storage::ReadState(reinterpret_cast<unsigned char *>(&pulseConstant), sizeof(pulseConstant));
++  if (pulseConstant == 0) {
++    pulseConstant = 3200;
++  }
++}
++
++_supla_int64_t BL_0930::getCounter() const {
++  return energy;
++}
++
++void BL_0930::setCounter(_supla_int64_t value) {
++  noInterrupts();
++  pulseOffset = pulseCount;
++  interrupts();
++
++  energyBase = value;
++  energy = value;
++  setFwdActEnergy(0, value);
++  Supla::Storage::ScheduleSave(1000);
++}
++
++uint32_t BL_0930::getPulseConstant() const {
++  return pulseConstant;
++}
++
++void BL_0930::setPulseConstant(uint32_t value) {
++  if (value == 0) {
++    return;
++  }
++
++  readValuesFromDevice();
++  energyBase = energy;
++  noInterrupts();
++  pulseOffset = pulseCount;
++  interrupts();
++  pulseConstant = value;
++  Supla::Storage::ScheduleSave(1000);
++}
++
++int BL_0930::handleCalcfgFromServer(TSD_DeviceCalCfgRequest *request) {
++  if (request && request->Command == SUPLA_CALCFG_CMD_RESET_COUNTERS) {
++    setCounter(0);
++    return SUPLA_CALCFG_RESULT_DONE;
++  }
++  return SUPLA_CALCFG_RESULT_NOT_SUPPORTED;
++}
++
++void IRAM_ATTR BL_0930::onPulse() {
++  if (instance == nullptr) {
++    return;
++  }
++
++  uint32_t nowUs = micros();
++  if (instance->lastPulseUs != 0) {
++    instance->pulsePeriodUs = nowUs - instance->lastPulseUs;
++  }
++  instance->lastPulseUs = nowUs;
++  instance->pulseCount++;
++}
++
++};  // namespace Sensor
++};  // namespace Supla
++
++#endif
+diff --git a/src/src/sensor/BL_0930.h b/src/src/sensor/BL_0930.h
+new file mode 100644
+index 00000000..17def73a
+--- /dev/null
++++ b/src/src/sensor/BL_0930.h
+@@ -0,0 +1,48 @@
++#ifdef SUPLA_BL0930
++#ifndef _bl0930_gui_h
++#define _bl0930_gui_h
++
++#include <Arduino.h>
++#include <supla/sensor/one_phase_electricity_meter.h>
++#include <supla/storage/storage.h>
++
++namespace Supla {
++namespace Sensor {
++
++class BL_0930 : public OnePhaseElectricityMeter {
++ public:
++  explicit BL_0930(int8_t pinCF);
++
++  void onInit();
++  void readValuesFromDevice();
++  void onSaveState();
++  void onLoadState();
++
++  _supla_int64_t getCounter() const;
++  void setCounter(_supla_int64_t value);
++
++  uint32_t getPulseConstant() const;
++  void setPulseConstant(uint32_t value);
++
++  int handleCalcfgFromServer(TSD_DeviceCalCfgRequest *request);
++
++ protected:
++  static void IRAM_ATTR onPulse();
++
++  int8_t pinCF;
++  uint64_t energyBase = 0;
++  uint64_t energy = 0;
++  uint32_t pulseConstant = 3200;
++  uint32_t pulseOffset = 0;
++
++  static BL_0930 *instance;
++  volatile uint32_t pulseCount = 0;
++  volatile uint32_t lastPulseUs = 0;
++  volatile uint32_t pulsePeriodUs = 0;
++};
++
++};  // namespace Sensor
++};  // namespace Supla
++
++#endif
++#endif
+diff --git a/src/src/sensor/CSE_7761.cpp b/src/src/sensor/CSE_7761.cpp
+new file mode 100644
+index 00000000..3ca84105
+--- /dev/null
++++ b/src/src/sensor/CSE_7761.cpp
+@@ -0,0 +1,273 @@
++#ifdef SUPLA_CSE7761
++
++#include "CSE_7761.h"
++
++namespace Supla {
++namespace Sensor {
++
++namespace {
++constexpr int CSE7761_UREF = 42563;
++constexpr int CSE7761_IREF = 52241;
++constexpr int CSE7761_PREF = 44513;
++
++constexpr uint8_t REG_SYSCON = 0x00;
++constexpr uint8_t REG_EMUCON = 0x01;
++constexpr uint8_t REG_EMUCON2 = 0x13;
++constexpr uint8_t REG_PULSE1SEL = 0x1D;
++constexpr uint8_t REG_RMSIA = 0x24;
++constexpr uint8_t REG_RMSIB = 0x25;
++constexpr uint8_t REG_RMSU = 0x26;
++constexpr uint8_t REG_POWERPA = 0x2C;
++constexpr uint8_t REG_POWERPB = 0x2D;
++constexpr uint8_t REG_SYSSTATUS = 0x43;
++constexpr uint8_t REG_COEFFCHKSUM = 0x6F;
++constexpr uint8_t REG_RMSIAC = 0x70;
++
++constexpr uint8_t SPECIAL_COMMAND = 0xEA;
++constexpr uint8_t CMD_RESET = 0x96;
++constexpr uint8_t CMD_CLOSE_WRITE = 0xDC;
++constexpr uint8_t CMD_ENABLE_WRITE = 0xE5;
++}  // namespace
++
++CSE_7761::CSE_7761(HardwareSerial &serial, int8_t pinRX, int8_t pinTX, uint8_t currentChannel)
++    : serial(serial), pinRX(pinRX), pinTX(pinTX), currentChannel(currentChannel > 0 ? 1 : 0) {
++}
++
++void CSE_7761::onInit() {
++  extChannel.setFlag(SUPLA_CHANNEL_FLAG_CALCFG_RESET_COUNTERS);
++  serial.begin(38400, SERIAL_8E1, pinRX, pinTX);
++  delay(10);
++
++  writeRegister(SPECIAL_COMMAND, CMD_RESET);
++  delay(10);
++
++  uint16_t syscon = readRegister(REG_SYSCON, 2);
++  if (syscon == 0x0A04 && chipInit()) {
++    writeRegister(SPECIAL_COMMAND, CMD_CLOSE_WRITE);
++    ready = true;
++    lastReadMs = millis();
++    readValuesFromDevice();
++    updateChannelValues();
++  }
++}
++
++void CSE_7761::readValuesFromDevice() {
++  if (!ready) {
++    return;
++  }
++
++  uint32_t value = readRegister(REG_RMSU, 3);
++  voltageRms = value >= 0x800000 ? 0 : value;
++
++  value = readRegister(REG_RMSIA, 3);
++  currentRms[0] = (value >= 0x800000 || value < 1600) ? 0 : value;
++  value = readRegister(REG_POWERPA, 4);
++  if (currentRms[0] == 0) {
++    activePower[0] = 0;
++  } else {
++    int32_t signedValue = static_cast<int32_t>(value);
++    activePower[0] = static_cast<uint32_t>(signedValue < 0 ? -signedValue : signedValue);
++  }
++
++  value = readRegister(REG_RMSIB, 3);
++  currentRms[1] = (value >= 0x800000 || value < 1600) ? 0 : value;
++  value = readRegister(REG_POWERPB, 4);
++  if (currentRms[1] == 0) {
++    activePower[1] = 0;
++  } else {
++    int32_t signedValue = static_cast<int32_t>(value);
++    activePower[1] = static_cast<uint32_t>(signedValue < 0 ? -signedValue : signedValue);
++  }
++
++  float voltage = static_cast<float>(voltageRms) / coefficientByUnit(RMS_UC);
++  float current = static_cast<float>(currentRms[currentChannel]) /
++                  coefficientByUnit(currentChannel == 0 ? RMS_IAC : RMS_IBC);
++  float active = static_cast<float>(activePower[currentChannel]) /
++                 coefficientByUnit(currentChannel == 0 ? POWER_PAC : POWER_PBC);
++  float apparent = computeApparentPower(voltage, current);
++  float reactive = 0;
++  if (apparent > active) {
++    reactive = sqrtf(apparent * apparent - active * active);
++  }
++  float pf = apparent <= 0 ? 0 : active / apparent;
++  if (pf > 1) {
++    pf = 1;
++  }
++
++  uint32_t now = millis();
++  if (lastReadMs != 0 && active > 0) {
++    uint32_t elapsedMs = now - lastReadMs;
++    energyAtLoad += static_cast<uint64_t>((active * elapsedMs) / 36.0f);
++    energy = energyAtLoad;
++  }
++  lastReadMs = now;
++
++  setVoltage(0, voltage * 100);
++  setCurrent(0, current * 1000);
++  setPowerActive(0, active * 100000);
++  setPowerApparent(0, apparent * 100000);
++  setPowerReactive(0, reactive * 100000);
++  setPowerFactor(0, pf * 1000);
++  setFwdActEnergy(0, energy);
++}
++
++void CSE_7761::onSaveState() {
++  Supla::Storage::WriteState(reinterpret_cast<unsigned char *>(&energy), sizeof(energy));
++  Supla::Storage::WriteState(reinterpret_cast<unsigned char *>(&currentChannel), sizeof(currentChannel));
++}
++
++void CSE_7761::onLoadState() {
++  if (Supla::Storage::ReadState(reinterpret_cast<unsigned char *>(&energy), sizeof(energy))) {
++    setCounter(energy);
++  }
++  Supla::Storage::ReadState(reinterpret_cast<unsigned char *>(&currentChannel), sizeof(currentChannel));
++  currentChannel = currentChannel > 0 ? 1 : 0;
++}
++
++void CSE_7761::setCounter(_supla_int64_t value) {
++  energyAtLoad = value;
++  energy = value;
++  setFwdActEnergy(0, value);
++}
++
++_supla_int64_t CSE_7761::getCounter() const {
++  return energy;
++}
++
++uint8_t CSE_7761::getCurrentChannel() const {
++  return currentChannel;
++}
++
++void CSE_7761::setCurrentChannel(uint8_t value) {
++  currentChannel = value > 0 ? 1 : 0;
++  Supla::Storage::ScheduleSave(1000);
++}
++
++bool CSE_7761::chipInit() {
++  uint16_t checksum = 0xFFFF;
++  for (uint8_t i = 0; i < 8; i++) {
++    coefficients[i] = readRegister(REG_RMSIAC + i, 2);
++    checksum += coefficients[i];
++  }
++  checksum = ~checksum;
++
++  uint16_t coeffChecksum = readRegister(REG_COEFFCHKSUM, 2);
++  if (checksum != coeffChecksum || !checksum) {
++    coefficients[RMS_IAC] = CSE7761_IREF;
++    coefficients[RMS_IBC] = CSE7761_IREF;
++    coefficients[RMS_UC] = CSE7761_UREF;
++    coefficients[POWER_PAC] = CSE7761_PREF;
++    coefficients[POWER_PBC] = CSE7761_PREF;
++  }
++
++  writeRegister(SPECIAL_COMMAND, CMD_ENABLE_WRITE);
++  uint8_t status = readRegister(REG_SYSSTATUS, 1);
++  if (!(status & 0x10)) {
++    return false;
++  }
++
++  writeRegister(REG_SYSCON | 0x80, 0xFF04);
++  writeRegister(REG_EMUCON | 0x80, 0x1183);
++  writeRegister(REG_EMUCON2 | 0x80, 0x0FC1);
++  writeRegister(REG_PULSE1SEL | 0x80, 0x3290);
++  return true;
++}
++
++void CSE_7761::writeRegister(uint8_t reg, uint16_t data) {
++  uint8_t buffer[5] = {0xA5, reg, 0, 0, 0};
++  uint32_t len = 2;
++  if (data) {
++    if (data < 0xFF) {
++      buffer[2] = data & 0xFF;
++      len = 3;
++    } else {
++      buffer[2] = (data >> 8) & 0xFF;
++      buffer[3] = data & 0xFF;
++      len = 4;
++    }
++
++    uint8_t crc = 0;
++    for (uint32_t i = 0; i < len; i++) {
++      crc += buffer[i];
++    }
++    buffer[len++] = ~crc;
++  }
++  serial.write(buffer, len);
++  serial.flush();
++}
++
++bool CSE_7761::readOnce(uint8_t reg, uint8_t size, uint32_t *value) {
++  while (serial.available()) {
++    serial.read();
++  }
++
++  writeRegister(reg, 0);
++  uint8_t buffer[8] = {0};
++  uint32_t received = 0;
++  uint32_t start = millis();
++  while (received <= size && millis() - start < 200) {
++    if (serial.available()) {
++      int byteRead = serial.read();
++      if (byteRead > -1 && received < sizeof(buffer)) {
++        buffer[received++] = byteRead;
++      }
++    } else {
++      delay(1);
++    }
++  }
++
++  if (received == 0) {
++    return false;
++  }
++
++  received--;
++  uint32_t result = 0;
++  uint8_t crc = 0xA5 + reg;
++  for (uint32_t i = 0; i < received; i++) {
++    result = (result << 8) | buffer[i];
++    crc += buffer[i];
++  }
++  crc = ~crc;
++  if (crc != buffer[received]) {
++    return false;
++  }
++
++  *value = result;
++  return true;
++}
++
++uint32_t CSE_7761::readRegister(uint8_t reg, uint8_t size) {
++  uint32_t value = 0;
++  for (uint8_t retry = 0; retry < 3; retry++) {
++    if (readOnce(reg, size, &value)) {
++      return value;
++    }
++  }
++  return value;
++}
++
++uint32_t CSE_7761::coefficientByUnit(CoefficientIndex unit) const {
++  switch (unit) {
++    case RMS_UC:
++      return 0x400000 * 100 / coefficients[RMS_UC];
++    case RMS_IAC:
++      return (0x800000 * 100 / coefficients[RMS_IAC]) * 10;
++    case RMS_IBC:
++      return (0x800000 * 100 / coefficients[RMS_IBC]) * 10;
++    case POWER_PAC:
++      return 0x80000000 / coefficients[POWER_PAC];
++    case POWER_PBC:
++      return 0x80000000 / coefficients[POWER_PBC];
++    default:
++      return 1;
++  }
++}
++
++float CSE_7761::computeApparentPower(float voltage, float current) const {
++  return voltage * current;
++}
++
++};  // namespace Sensor
++};  // namespace Supla
++
++#endif
+diff --git a/src/src/sensor/CSE_7761.h b/src/src/sensor/CSE_7761.h
+new file mode 100644
+index 00000000..3091b2b0
+--- /dev/null
++++ b/src/src/sensor/CSE_7761.h
+@@ -0,0 +1,64 @@
++#ifdef SUPLA_CSE7761
++#ifndef _cse7761_gui_h
++#define _cse7761_gui_h
++
++#include <Arduino.h>
++#include <HardwareSerial.h>
++#include <supla/sensor/one_phase_electricity_meter.h>
++#include <supla/storage/storage.h>
++
++namespace Supla {
++namespace Sensor {
++
++class CSE_7761 : public OnePhaseElectricityMeter {
++ public:
++  CSE_7761(HardwareSerial &serial, int8_t pinRX, int8_t pinTX, uint8_t currentChannel = 0);
++
++  void onInit();
++  void readValuesFromDevice();
++  void onSaveState();
++  void onLoadState();
++
++  void setCounter(_supla_int64_t value);
++  _supla_int64_t getCounter() const;
++  uint8_t getCurrentChannel() const;
++  void setCurrentChannel(uint8_t value);
++
++ protected:
++  enum CoefficientIndex {
++    RMS_IAC = 0,
++    RMS_IBC,
++    RMS_UC,
++    POWER_PAC,
++    POWER_PBC,
++    POWER_SC,
++    ENERGY_AC,
++    ENERGY_BC
++  };
++
++  bool chipInit();
++  void writeRegister(uint8_t reg, uint16_t data);
++  bool readOnce(uint8_t reg, uint8_t size, uint32_t *value);
++  uint32_t readRegister(uint8_t reg, uint8_t size);
++  uint32_t coefficientByUnit(CoefficientIndex unit) const;
++  float computeApparentPower(float voltage, float current) const;
++
++  HardwareSerial &serial;
++  int8_t pinRX;
++  int8_t pinTX;
++  uint8_t currentChannel;
++  uint16_t coefficients[8] = {0};
++  uint32_t voltageRms = 0;
++  uint32_t currentRms[2] = {0, 0};
++  uint32_t activePower[2] = {0, 0};
++  uint64_t energy = 0;
++  uint64_t energyAtLoad = 0;
++  uint32_t lastReadMs = 0;
++  bool ready = false;
++};
++
++};  // namespace Sensor
++};  // namespace Supla
++
++#endif
++#endif
 diff --git a/src/src/update/SuplaHTTPUpdateServer.h b/src/src/update/SuplaHTTPUpdateServer.h
 index 383a2ecf..9e1f38e4 100644
 --- a/src/src/update/SuplaHTTPUpdateServer.h
@@ -561,3 +1237,124 @@ index 2359a672..276fea0f 100644
    {"NAME":"Wemos LOLIN D32","GPIO":[0,0,0,0,0,544,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
    {"NAME":"Sonoff POW R3 Origin 16A","GPIO":[32,0,0,0,0,576,0,0,0,224,0,0,3104,0,320,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]},
    {"NAME":"Sonoff MINIR4","GPIO":[32,0,0,0,0,0,0,0,0,0,0,0,0,0,0,576,0,0,0,0,0,0,224,160,0,0,0,0,0,0,0,0,0,0,0,0]},
+diff --git a/lib/Z2S_Library/library.json b/lib/Z2S_Library/library.json
+new file mode 100644
+index 00000000..59944199
+--- /dev/null
++++ b/lib/Z2S_Library/library.json
+@@ -0,0 +1,7 @@
++{
++  "name": "Z2S_Library",
++  "version": "0.1.0",
++  "description": "Zigbee gateway support for GUI-Generic",
++  "frameworks": "arduino",
++  "platforms": "espressif32"
++}
+diff --git a/src/src/zigbee/SuplaZigbeeGateway.h b/src/src/zigbee/SuplaZigbeeGateway.h
+new file mode 100644
+index 00000000..05fdcebb
+--- /dev/null
++++ b/src/src/zigbee/SuplaZigbeeGateway.h
+@@ -0,0 +1,44 @@
++#ifndef SuplaZigbeeGateway_h
++#define SuplaZigbeeGateway_h
++
++#if defined(ARDUINO_ARCH_ESP32)
++#include <sdkconfig.h>
++#endif
++
++#if defined(SUPLA_ZIGBEE_GATEWAY) && defined(CONFIG_IDF_TARGET_ESP32C6)
++
++#include <SuplaDevice.h>
++#include <ZigbeeCore.h>
++#include <ZigbeeGateway.h>
++
++namespace Supla::GUI {
++
++class ZigbeeGatewayMode {
++ public:
++  static void setup();
++  static void iterate();
++
++ private:
++  static bool configured;
++  static bool started;
++  static bool coexist_enabled;
++  static ZigbeeGateway gateway;
++};
++
++}  // namespace Supla::GUI
++
++#else
++
++namespace Supla::GUI {
++
++class ZigbeeGatewayMode {
++ public:
++  static void setup() {}
++  static void iterate() {}
++};
++
++}  // namespace Supla::GUI
++
++#endif
++
++#endif  // SuplaZigbeeGateway_h
+diff --git a/src/src/zigbee/SuplaZigbeeGateway.cpp b/src/src/zigbee/SuplaZigbeeGateway.cpp
+new file mode 100644
+index 00000000..ea497437
+--- /dev/null
++++ b/src/src/zigbee/SuplaZigbeeGateway.cpp
+@@ -0,0 +1,52 @@
++#include "SuplaZigbeeGateway.h"
++
++#if defined(SUPLA_ZIGBEE_GATEWAY) && defined(CONFIG_IDF_TARGET_ESP32C6)
++
++#include "esp_coexist.h"
++
++namespace Supla::GUI {
++
++namespace {
++constexpr uint8_t kGatewayEndpoint = 1;
++constexpr uint8_t kOpenNetworkSeconds = 180;
++}
++
++bool ZigbeeGatewayMode::configured = false;
++bool ZigbeeGatewayMode::started = false;
++bool ZigbeeGatewayMode::coexist_enabled = false;
++ZigbeeGateway ZigbeeGatewayMode::gateway(kGatewayEndpoint);
++
++void ZigbeeGatewayMode::setup() {
++  if (configured) {
++    return;
++  }
++
++  gateway.setManufacturerAndModel("Supla", "Z2SGateway");
++  gateway.allowMultipleBinding(true);
++  Zigbee.addEndpoint(&gateway);
++  Zigbee.setRebootOpenNetwork(kOpenNetworkSeconds);
++  configured = true;
++}
++
++void ZigbeeGatewayMode::iterate() {
++  if (!configured || started) {
++    return;
++  }
++
++  if (SuplaDevice.getCurrentStatus() != STATUS_REGISTERED_AND_READY) {
++    return;
++  }
++
++  if (!coexist_enabled) {
++    esp_coex_wifi_i154_enable();
++    coexist_enabled = true;
++  }
++
++  if (Zigbee.begin(ZIGBEE_COORDINATOR)) {
++    started = true;
++  }
++}
++
++}  // namespace Supla::GUI
++
++#endif

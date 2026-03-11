@@ -27,14 +27,15 @@ git clone https://github.com/Robert-codex/supla-local-builder.git
 cd supla-local-builder
 ```
 
-## 3. Submodule i lokalne patche
+## 3. Submodule
 
 ```bash
 git submodule update --init --recursive
-./scripts/apply_gui_generic_patches.sh
 ```
 
-Ten krok pobiera upstream `GUI-Generic` i nakłada lokalne zmiany projektu.
+Ten krok pobiera `GUI-Generic` do commita śledzonego przez to repo, razem z lokalnymi zmianami projektu.
+
+Skrypt `./scripts/apply_gui_generic_patches.sh` jest potrzebny tylko wtedy, gdy świadomie przełączysz submodule na czysty upstream i chcesz ręcznie dołożyć lokalny patch set.
 
 Jeżeli aktualizujesz istniejącą instalację, używaj workflow opartego o lokalną gałąź submodule:
 
@@ -211,11 +212,16 @@ sudo journalctl -u local_builder.service -f
 
 ## 9. Aktualizacja projektu
 
-Po aktualizacji repo odśwież też submodule i lokalne patche:
+Po aktualizacji repo odśwież też submodule:
 
 ```bash
 git pull
 git submodule update --init --recursive
+```
+
+Jeżeli pracujesz na czystym upstream `GUI-Generic`, możesz dodatkowo uruchomić:
+
+```bash
 ./scripts/apply_gui_generic_patches.sh
 ```
 
