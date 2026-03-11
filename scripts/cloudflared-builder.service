@@ -1,0 +1,15 @@
+[Unit]
+Description=cloudflared tunnel for supla-local-builder
+After=network-online.target local_builder.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=langnet
+WorkingDirectory=/home/langnet/Projekty/Supla
+ExecStart=/usr/bin/cloudflared tunnel --config /home/langnet/Projekty/Supla/scripts/cloudflared-builder.yml run supla-builder
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

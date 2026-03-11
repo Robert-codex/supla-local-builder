@@ -4,10 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
+User=langnet
 WorkingDirectory=/home/langnet/Projekty/Supla
-Environment=LOCAL_BUILDER_HOST=0.0.0.0
+Environment=LOCAL_BUILDER_HOST=127.0.0.1
 Environment=LOCAL_BUILDER_PORT=8181
-Environment=LOCAL_BUILDER_PUBLIC_URL=http://192.168.2.119:8181/
+Environment=LOCAL_BUILDER_PUBLIC_URL=https://builder.regnal.eu/
 ExecStart=/home/langnet/Projekty/Supla/scripts/run_local_builder.sh
 Restart=on-failure
 RestartSec=3

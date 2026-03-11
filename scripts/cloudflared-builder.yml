@@ -1,0 +1,7 @@
+tunnel: 413e4161-79f7-41ff-8354-fd2b462cdab2
+credentials-file: /home/langnet/.cloudflared/413e4161-79f7-41ff-8354-fd2b462cdab2.json
+
+ingress:
+  - hostname: builder.regnal.eu
+    service: http://127.0.0.1:8181
+  - service: http_status:404

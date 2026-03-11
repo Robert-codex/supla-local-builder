@@ -178,6 +178,15 @@ button:hover {
   background: var(--accent-strong);
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+button:disabled:hover {
+  transform: none;
+}
+
 button.ghost {
   background: rgba(28, 42, 47, 0.06);
   color: var(--ink);
@@ -320,12 +329,12 @@ button.ghost {
   flex: 1 1 220px;
 }
 
-.web-install-wrap esp-web-install-button {
+.web-install-wrap button {
   width: 100%;
 }
 
-.web-install-wrap[hidden] {
-  display: none;
+.web-install-wrap esp-web-install-button {
+  width: 100%;
 }
 
 .install-artifacts {

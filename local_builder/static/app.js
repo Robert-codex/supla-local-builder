@@ -953,6 +953,18 @@ function webInstallSupported() {
   return !webInstallSupportReason();
 }
 
+function renderWebInstallPlaceholder(label, title = "") {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "ghost web-install-placeholder";
+  button.disabled = true;
+  button.textContent = label;
+  if (title) {
+    button.title = title;
+  }
+  els.webInstallWrap.appendChild(button);
+}
+
 function serialPortLabel(port, index) {
   if (port && typeof port.path === "string") {
     return port.label || port.path;
@@ -1083,20 +1095,31 @@ async function refreshSerialPorts({ requestAccess = false } = {}) {
 
 function renderWebInstallButton(payload) {
   els.webInstallWrap.innerHTML = "";
-  els.webInstallWrap.hidden = true;
   state.webInstallButton = null;
 
   if (!payload?.hash || payload.status !== "ready") {
+    renderWebInstallPlaceholder(
+      "Web Installer będzie dostępny po buildzie",
+      "Najpierw zbuduj firmware albo wybierz gotowy build z historii.",
+    );
     els.webInstallHint.textContent = "Instalacja z przeglądarki działa przez Web Serial w Chromium i wymaga połączenia HTTP localhost albo HTTPS.";
     return;
   }
 
   if (!webInstallSupported()) {
+    renderWebInstallPlaceholder(
+      "Web Installer niedostępny w tej przeglądarce",
+      "Użyj Chrome albo Edge na HTTPS lub localhost.",
+    );
     els.webInstallHint.textContent = "Ta przeglądarka albo kontekst strony nie obsługuje Web Serial. Użyj Chrome lub Edge na localhost/HTTPS albo pobierz pliki poniżej.";
     return;
   }
 
   if (!webInstallComponentReady()) {
+    renderWebInstallPlaceholder(
+      "Web Installer nie załadował się",
+      "Odśwież stronę albo sprawdź dostęp do skryptu esp-web-tools.",
+    );
     els.webInstallHint.textContent = "Komponent Web Installera nie załadował się. Odśwież stronę albo sprawdź, czy przeglądarka ma dostęp do skryptu esp-web-tools.";
     return;
   }
@@ -1106,7 +1129,6 @@ function renderWebInstallButton(payload) {
   button.setAttribute("manifest", manifestUrl);
   button.setAttribute("install-supported", "");
   els.webInstallWrap.appendChild(button);
-  els.webInstallWrap.hidden = false;
   state.webInstallButton = button;
   els.webInstallHint.textContent = "Kliknij bezpośrednio przycisk Web Installer obok, żeby przeglądarka zachowała uprawnienia do portu USB.";
 }
@@ -1192,8 +1214,26 @@ async function fetchBuildHistory() {
     const payload = await response.json();
     const items = payload.items || [];
     renderHistory(items);
+    if (!state.currentBuildHash) {
+      return;
+    }
+
+    const currentExists = items.some((item) => item.hash === state.currentBuildHash);
+    if (!currentExists) {
+      try {
+        await fetchBuildDetails(state.currentBuildHash);
+      } catch (error) {
+        if (error?.status === 404) {
+          state.currentBuildHash = "";
+          renderStatus(null);
+        }
+      }
+    }
   } catch (error) {
     renderHistory([]);
+    if (!state.currentBuildHash) {
+      renderStatus(null);
+    }
     els.buildHistory.innerHTML = `<div class="history-item"><small>Nie udało się pobrać historii buildów: ${escapeHtml(error.message || String(error))}</small></div>`;
   }
 }
@@ -1201,7 +1241,9 @@ async function fetchBuildHistory() {
 async function fetchBuildDetails(hash) {
   const response = await fetch(`/api/builds/${hash}`);
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    const error = new Error(`HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
   const payload = await response.json();
   renderStatus(payload);
