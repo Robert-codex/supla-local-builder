@@ -589,6 +589,10 @@ button.ghost {
   background: rgba(255, 255, 255, 0.7);
 }
 
+.option-body {
+  min-width: 0;
+}
+
 .option-card input {
   width: 18px;
   height: 18px;
@@ -599,10 +603,15 @@ button.ghost {
   display: flex;
   justify-content: space-between;
   gap: 10px;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .option-name {
   display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .option-desc,
@@ -610,6 +619,8 @@ button.ghost {
   margin: 8px 0 0;
   font-size: 13px;
   color: var(--muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .option-badges {
