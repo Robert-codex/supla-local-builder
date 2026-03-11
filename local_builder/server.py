@@ -33,19 +33,20 @@ BUILDS_DIR = DATA_DIR / "builds"
 WORK_DIR = DATA_DIR / "work"
 HIDDEN_OPTION_IDS = {"SUPLA_ZIGBEE_GATEWAY"}
 
-LOCAL_TEMPLATE_BOARDS = [
-    {
-        "NAME": "Sonoff 4CHPROR3 Switch Module (M0802010004)",
-        "GPIO": [17, 255, 255, 255, 23, 22, 18, 19, 21, 56, 20, 24, 0],
-        "FLAG": 0,
-        "BASE": 23,
-    },
+# Local aliases must expand to explicit GPIO maps that GUI-Generic understands.
+# Tasmota maps SONOFF_4CHPRO to TMP_SONOFF_4CH, so 4CHPROR3 can be exposed here
+# as the same explicit ESP8285 GPIO layout without relying on `BASE`.
+LOCAL_TEMPLATE_BOARDS: list[dict[str, Any]] = [
     {
         "NAME": "Sonoff 4CHPROR3",
         "GPIO": [17, 255, 255, 255, 23, 22, 18, 19, 21, 56, 20, 24, 0],
         "FLAG": 0,
-        "BASE": 23,
-    }
+    },
+    {
+        "NAME": "Sonoff 4CHPROR3 Switch Module (M0802010004)",
+        "GPIO": [17, 255, 255, 255, 23, 22, 18, 19, 21, 56, 20, 24, 0],
+        "FLAG": 0,
+    },
 ]
 
 
@@ -97,16 +98,60 @@ def normalize_public_url(value: str) -> str:
     return value.rstrip("/") + "/"
 
 
-def template_name_from_json(template_json: str) -> str:
+def parse_template_json_object(template_json: str) -> tuple[dict[str, Any] | None, str]:
     raw = template_json.strip()
     if not raw:
-        return ""
+        return None, ""
     try:
         payload = json.loads(raw)
     except json.JSONDecodeError:
+        return None, "Template JSON musi być poprawnym obiektem JSON."
+    if not isinstance(payload, dict):
+        return None, "Template JSON musi być poprawnym obiektem JSON."
+    return payload, ""
+
+
+def template_name_from_json(template_json: str) -> str:
+    payload, _ = parse_template_json_object(template_json)
+    if payload is None:
         return ""
     name = payload.get("NAME")
     return str(name).strip() if isinstance(name, str) else ""
+
+
+def template_base_from_json(template_json: str) -> int | str | None:
+    payload, _ = parse_template_json_object(template_json)
+    if payload is None:
+        return None
+    if "BASE" not in payload:
+        return None
+    value = payload.get("BASE")
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.isdigit():
+            return int(stripped)
+        if stripped:
+            return stripped
+    return "unknown"
+
+
+def unsupported_template_error(template_json: str) -> str:
+    base = template_base_from_json(template_json)
+    if base is None:
+        return ""
+    template_name = template_name_from_json(template_json) or "Wybrany template"
+    return (
+        f"{template_name} używa pola BASE={base}. Ten builder GUI Generic "
+        "obsługuje tylko jawne mapowanie GPIO z JSON-a i nie interpretuje "
+        "dziedziczenia Tasmota przez BASE, więc build został zablokowany, "
+        "żeby nie generować mylącego firmware."
+    )
 
 
 def make_device_basename(custom_name: str, template_name: str, template_json: str, fallback: str) -> str:
@@ -996,6 +1041,14 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
         request.hash = request.compute_hash()
         if request.env not in self.app.catalog.envs:
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": "Nieznane środowisko kompilacji"})
+            return
+        template_parse_error = parse_template_json_object(request.template_json)[1]
+        if template_parse_error:
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": template_parse_error})
+            return
+        template_error = unsupported_template_error(request.template_json)
+        if template_error:
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": template_error})
             return
 
         metadata = self.app.manager.submit(request)

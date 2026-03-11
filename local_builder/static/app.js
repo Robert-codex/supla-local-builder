@@ -679,6 +679,48 @@ function validateHardwarePreset() {
   return { ok: true, message: requirements.note };
 }
 
+function parseTemplateBase(value) {
+  if (typeof value === "number" && Number.isInteger(value)) {
+    return String(value);
+  }
+  if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+    return String(Number.parseInt(value.trim(), 10));
+  }
+  if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  }
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+  return null;
+}
+
+function templateCompatibilityIssue(templateJson) {
+  const raw = templateJson.trim();
+  if (!raw) {
+    return "";
+  }
+
+  try {
+    const payload = JSON.parse(raw);
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return "Template JSON musi być poprawnym obiektem JSON.";
+    }
+    if (!Object.prototype.hasOwnProperty.call(payload, "BASE")) {
+      return "";
+    }
+    const base = parseTemplateBase(payload.BASE);
+    const name = typeof payload.NAME === "string" && payload.NAME.trim() ? payload.NAME.trim() : "Wybrany template";
+    return `${name} używa pola BASE=${base ?? "unknown"}. Ten builder GUI Generic interpretuje tylko jawne GPIO z JSON-a i nie obsługuje dziedziczenia Tasmota przez BASE.`;
+  } catch {
+    return "Template JSON musi być poprawnym obiektem JSON.";
+  }
+}
+
+function selectedTemplateCompatibilityIssue() {
+  return templateCompatibilityIssue(selectedTemplateJson());
+}
+
 function applyHardwarePresetSelection() {
   if (!isDualR3PresetActive()) {
     return;
@@ -823,6 +865,7 @@ function renderSummary() {
   const templateName = usingCustomTemplateJson() ? "własny JSON" : (els.templateSelect.value || "brak");
   const hardwarePreset = currentDualR3Preset()?.label || els.hardwarePreset.value || "brak";
   const meterChip = isDualR3PresetActive() ? els.meterChip.value : "brak";
+  const templateIssue = selectedTemplateCompatibilityIssue();
   els.selectionSummary.innerHTML = `
     <strong>${selectedList.length}</strong> aktywnych opcji |
     env: <strong>${escapeHtml(els.envSelect.value)}</strong> |
@@ -830,6 +873,7 @@ function renderSummary() {
     template: <strong>${escapeHtml(templateName)}</strong> |
     preset: <strong>${escapeHtml(hardwarePreset)}</strong> |
     pomiar: <strong>${escapeHtml(meterChip)}</strong>
+    ${templateIssue ? `<br><strong>Uwaga:</strong> ${escapeHtml(templateIssue)}` : ""}
   `;
 }
 
@@ -1197,6 +1241,19 @@ async function triggerBuild() {
       hash: "",
       request: {},
       error: hardwareValidation.message,
+      artifact_urls: {},
+      log_tail: "",
+    });
+    return;
+  }
+
+  const templateIssue = selectedTemplateCompatibilityIssue();
+  if (templateIssue) {
+    renderStatus({
+      status: "failed",
+      hash: "",
+      request: {},
+      error: templateIssue,
       artifact_urls: {},
       log_tail: "",
     });
