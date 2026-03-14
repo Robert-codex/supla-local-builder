@@ -14,6 +14,7 @@ const state = {
 };
 
 const DUAL_R3_PM_TEMPLATE_NAME = "Sonoff Dual R3 Power Monitoring";
+const DUAL_R3_V2_PM_TEMPLATE_NAME = "Sonoff Dual R3 v2 Power Monitoring";
 const XIAO_ESP32C6_TEMPLATE_NAME = "Seeed Studio XIAO ESP32C6";
 const XIAO_ESP32C6_ENVS = {
   wifi: "GUI_Generic_ESP32C6_XIAO_nolibs",
@@ -35,7 +36,7 @@ const TEMPLATE_CODES = {
   cf: 2688,
 };
 const DUAL_R3_REQUIRED_OPTIONS = ["SUPLA_RELAY", "SUPLA_BUTTON"];
-const DUAL_R3_METER_OPTIONS = ["SUPLA_CSE7761", "SUPLA_CSE7766", "SUPLA_BL0930"];
+const DUAL_R3_METER_OPTIONS = ["SUPLA_CSE7761", "SUPLA_CSE7766", "SUPLA_BL0930", "SUPLA_BL0939"];
 const DUAL_R3_PRESETS = {
   sonoff_dual_r3_pm: {
     chip: "none",
@@ -98,6 +99,17 @@ const FEATURED_DEVICE_PRESETS = [
     env: "GUI_Generic_ESP32",
     hardwarePreset: "sonoff_dual_r3_pm_bl0930",
     chips: ["ESP32", "BL0930"],
+  },
+  {
+    id: "dualr3-v2-bl0939-layout",
+    name: "Sonoff Dual R3 v2 Power Monitoring",
+    description: "Gotowy preset dla rewizji v2 z mapą GPIO i sterownikiem UART BL0939.",
+    templateName: DUAL_R3_V2_PM_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
+    hardwarePreset: "",
+    selectedOptions: ["SUPLA_RELAY", "SUPLA_BUTTON", "SUPLA_BL0939"],
+    chips: ["ESP32", "BL0939", "Dual R3 v2"],
   },
   {
     id: "zigbee-gateway",
@@ -449,12 +461,7 @@ function applyDevicePreset(preset) {
   if (preset.hardwarePreset) {
     applyDualR3PresetDefaults();
   } else {
-    els.meterChip.value = "none";
-    els.meterRxPin.value = "";
-    els.meterTxPin.value = "";
-    els.meterCfPin.value = "";
-    els.meterCf1Pin.value = "";
-    els.meterSelPin.value = "";
+    resetHardwarePresetInputs();
   }
   if (preset.selectedOptions?.length) {
     const base = state.config.defaults.selected_options || [];
@@ -565,9 +572,11 @@ function renderDeviceGroups() {
         els.processorSelect.value = templateFamily(template);
         renderEnvSelect();
       }
+      clearHardwarePresetSelection();
       renderTemplateSelect(templateName);
       els.templateSelect.value = templateName;
       syncXiaoProtocolContext();
+      normalizeSelection();
       renderAll();
     });
   });
@@ -677,6 +686,39 @@ function isDualR3PresetActive() {
 
 function currentDualR3Preset() {
   return DUAL_R3_PRESETS[els.hardwarePreset.value] || null;
+}
+
+function resetHardwarePresetInputs() {
+  els.hardwarePreset.value = "";
+  els.meterChip.value = "none";
+  els.meterRxPin.value = "";
+  els.meterTxPin.value = "";
+  els.meterCfPin.value = "";
+  els.meterCf1Pin.value = "";
+  els.meterSelPin.value = "";
+}
+
+function clearHardwarePresetSelection() {
+  const hadPreset = Boolean(
+    els.hardwarePreset.value ||
+    els.meterChip.value !== "none" ||
+    els.meterRxPin.value ||
+    els.meterTxPin.value ||
+    els.meterCfPin.value ||
+    els.meterCf1Pin.value ||
+    els.meterSelPin.value ||
+    DUAL_R3_METER_OPTIONS.some((optionId) => state.selected.has(optionId))
+  );
+
+  if (!hadPreset) {
+    return false;
+  }
+
+  resetHardwarePresetInputs();
+  for (const optionId of DUAL_R3_METER_OPTIONS) {
+    state.selected.delete(optionId);
+  }
+  return true;
 }
 
 function dualR3MeterRequirements(chip) {
@@ -879,13 +921,7 @@ function setDefaults() {
   const dd = String(today.getDate()).padStart(2, "0");
   els.buildVersion.value = `${yy}.${mm}.${dd}`;
   els.customName.value = "";
-  els.hardwarePreset.value = "";
-  els.meterChip.value = "none";
-  els.meterRxPin.value = "";
-  els.meterTxPin.value = "";
-  els.meterCfPin.value = "";
-  els.meterCf1Pin.value = "";
-  els.meterSelPin.value = "";
+  resetHardwarePresetInputs();
   els.templateJson.value = "";
   normalizeSelection();
   renderAll();
@@ -1496,8 +1532,10 @@ async function bootstrap() {
   els.searchInput.addEventListener("input", renderOptions);
   els.languageSelect.addEventListener("change", renderAll);
   els.processorSelect.addEventListener("change", () => {
+    clearHardwarePresetSelection();
     renderEnvSelect();
     syncXiaoProtocolContext();
+    normalizeSelection();
     renderAll();
   });
   els.templateFilter.addEventListener("input", () => {
@@ -1537,10 +1575,16 @@ async function bootstrap() {
     });
   });
   els.templateSelect.addEventListener("change", () => {
+    clearHardwarePresetSelection();
     syncXiaoProtocolContext();
+    normalizeSelection();
     renderAll();
   });
   els.templateJson.addEventListener("input", () => {
+    if (els.templateJson.value.trim()) {
+      clearHardwarePresetSelection();
+      normalizeSelection();
+    }
     syncXiaoProtocolContext();
     renderAll();
   });
