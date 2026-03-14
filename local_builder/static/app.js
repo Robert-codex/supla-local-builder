@@ -102,6 +102,17 @@ const FEATURED_DEVICE_PRESETS = [
     chips: ["ESP32-C6", "Zigbee"],
   },
   {
+    id: "xiao-esp32c6",
+    name: "Seeed Studio XIAO ESP32C6",
+    description: "Minimalny preset developerski dla XIAO ESP32C6 na działającym profilu C6 nolibs, z diodą statusu na pokładzie.",
+    templateName: "Seeed Studio XIAO ESP32C6",
+    processor: "esp32c6",
+    env: "GUI_Generic_ESP32C6_XIAO_nolibs",
+    hardwarePreset: "",
+    selectedOptions: ["SUPLA_LED"],
+    chips: ["ESP32-C6", "XIAO", "Seeed"],
+  },
+  {
     id: "shelly-1",
     name: "Shelly 1",
     description: "Popularny switch na ESP8266/ESP8285 ze wsparciem dwóch przekaźników.",

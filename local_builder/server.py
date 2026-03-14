@@ -47,6 +47,11 @@ LOCAL_TEMPLATE_BOARDS: list[dict[str, Any]] = [
         "GPIO": [17, 255, 255, 255, 23, 22, 18, 19, 21, 56, 20, 24, 0],
         "FLAG": 0,
     },
+    {
+        "NAME": "Seeed Studio XIAO ESP32C6",
+        "GPIO": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 544, 0, 0, 0, 0, 0, 0, 0, 0],
+        "FLAG": 0,
+    },
 ]
 
 
