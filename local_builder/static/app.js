@@ -586,19 +586,25 @@ function normalizeSelection() {
   let changed = true;
   while (changed) {
     changed = false;
+
+    // `depOn` in builder.json is a reverse dependency:
+    // enabling one of the listed options should auto-enable the current option.
+    for (const [optionId, option] of Object.entries(state.config.options)) {
+      if (state.selected.has(optionId)) {
+        continue;
+      }
+      if ((option.depOn || []).some((depId) => state.selected.has(depId))) {
+        state.selected.add(optionId);
+        changed = true;
+      }
+    }
+
     for (const optionId of [...state.selected]) {
       const option = getOption(optionId);
       if (!option) {
         state.selected.delete(optionId);
         changed = true;
         continue;
-      }
-
-      for (const depId of option.depOn || []) {
-        if (!state.selected.has(depId)) {
-          state.selected.add(depId);
-          changed = true;
-        }
       }
 
       for (const depId of option.depOpt || []) {
@@ -613,12 +619,6 @@ function normalizeSelection() {
           state.selected.delete(relId);
           changed = true;
         }
-      }
-
-      const blockers = option.depOff || [];
-      if (blockers.some((requiredId) => !state.selected.has(requiredId))) {
-        state.selected.delete(optionId);
-        changed = true;
       }
     }
   }
