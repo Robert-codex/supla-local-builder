@@ -68,6 +68,31 @@
             <span>Template board</span>
             <select id="templateSelect"></select>
           </label>
+          <section id="xiaoProtocolPanel" class="preset-panel wide" hidden>
+            <div class="preset-head">
+              <strong>Protokół XIAO ESP32-C6</strong>
+              <small>Przełącza profil builda między klasycznym WiFi i trybem Zigbee gateway</small>
+            </div>
+            <div class="protocol-switch">
+              <label class="protocol-option">
+                <input type="radio" name="xiaoProtocol" value="wifi" checked>
+                <span class="protocol-card">
+                  <strong>WiFi / standard</strong>
+                  <small>Profil <code>GUI_Generic_ESP32C6_XIAO_nolibs</code> do typowego firmware SUPLA z OTA i Web Serial.</small>
+                </span>
+              </label>
+              <label class="protocol-option">
+                <input type="radio" name="xiaoProtocol" value="zigbee">
+                <span class="protocol-card">
+                  <strong>Zigbee gateway</strong>
+                  <small>Profil <code>GUI_Generic_ESP32C6_XIAO_Zigbee_gateway</code> z partycjami i bibliotekami stosu Zigbee.</small>
+                </span>
+              </label>
+            </div>
+            <div id="xiaoProtocolNote" class="preset-note">
+              Dla XIAO ESP32-C6 możesz przełączyć protokół bez ręcznego wybierania env PlatformIO.
+            </div>
+          </section>
           <section id="hardwarePresetPanel" class="preset-panel wide">
             <div class="preset-head">
               <strong>Asystent sprzętu</strong>

@@ -14,6 +14,15 @@ const state = {
 };
 
 const DUAL_R3_PM_TEMPLATE_NAME = "Sonoff Dual R3 Power Monitoring";
+const XIAO_ESP32C6_TEMPLATE_NAME = "Seeed Studio XIAO ESP32C6";
+const XIAO_ESP32C6_ENVS = {
+  wifi: "GUI_Generic_ESP32C6_XIAO_nolibs",
+  zigbee: "GUI_Generic_ESP32C6_XIAO_Zigbee_gateway",
+};
+const GENERIC_ESP32C6_ENVS = {
+  wifi: "GUI_Generic_ESP32C6_nolibs",
+  zigbee: "GUI_Generic_ESP32C6_Zigbee_gateway",
+};
 const DUAL_R3_PM_BASE_GPIO = [
   32, 0, 0, 0, 0, 0, 0, 0, 0, 576, 225, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224,
@@ -104,12 +113,13 @@ const FEATURED_DEVICE_PRESETS = [
   {
     id: "xiao-esp32c6",
     name: "Seeed Studio XIAO ESP32C6",
-    description: "Minimalny preset developerski dla XIAO ESP32C6 na działającym profilu C6 nolibs, z diodą statusu na pokładzie.",
-    templateName: "Seeed Studio XIAO ESP32C6",
+    description: "Preset XIAO ESP32C6 z lokalnym mapowaniem GPIO. Protokół WiFi albo Zigbee przełączysz osobno w formularzu builda.",
+    templateName: XIAO_ESP32C6_TEMPLATE_NAME,
     processor: "esp32c6",
-    env: "GUI_Generic_ESP32C6_XIAO_nolibs",
+    env: XIAO_ESP32C6_ENVS.wifi,
     hardwarePreset: "",
     selectedOptions: ["SUPLA_LED"],
+    xiaoProtocol: "wifi",
     chips: ["ESP32-C6", "XIAO", "Seeed"],
   },
   {
@@ -170,6 +180,8 @@ const els = {
   meterSelPin: document.getElementById("meterSelPin"),
   hardwarePresetPanel: document.getElementById("hardwarePresetPanel"),
   hardwarePresetNote: document.getElementById("hardwarePresetNote"),
+  xiaoProtocolPanel: document.getElementById("xiaoProtocolPanel"),
+  xiaoProtocolNote: document.getElementById("xiaoProtocolNote"),
   templateJson: document.getElementById("templateJson"),
   searchInput: document.getElementById("searchInput"),
   selectionSummary: document.getElementById("selectionSummary"),
@@ -198,6 +210,7 @@ const els = {
   resetDefaults: document.getElementById("resetDefaults"),
   optionTemplate: document.getElementById("optionTemplate"),
 };
+const xiaoProtocolInputs = [...document.querySelectorAll('input[name="xiaoProtocol"]')];
 
 function escapeHtml(value) {
   return value
@@ -258,6 +271,63 @@ function envFamilyLabel(family) {
   }
 }
 
+function isXiaoTemplateSelected() {
+  return els.templateSelect.value === XIAO_ESP32C6_TEMPLATE_NAME;
+}
+
+function isXiaoEnv(env) {
+  return Object.values(XIAO_ESP32C6_ENVS).includes(env);
+}
+
+function xiaoProtocolForEnv(env) {
+  const value = String(env || "");
+  if (value === XIAO_ESP32C6_ENVS.zigbee || value === GENERIC_ESP32C6_ENVS.zigbee || value.includes("Zigbee")) {
+    return "zigbee";
+  }
+  if (value === XIAO_ESP32C6_ENVS.wifi || value === GENERIC_ESP32C6_ENVS.wifi) {
+    return "wifi";
+  }
+  return "";
+}
+
+function xiaoEnvForProtocol(protocol) {
+  return protocol === "zigbee" ? XIAO_ESP32C6_ENVS.zigbee : XIAO_ESP32C6_ENVS.wifi;
+}
+
+function xiaoProtocolLabel(protocol) {
+  return protocol === "zigbee" ? "Zigbee gateway" : "WiFi / standard";
+}
+
+function selectedXiaoProtocol() {
+  const active = xiaoProtocolInputs.find((input) => input.checked);
+  return active?.value || "wifi";
+}
+
+function setXiaoProtocol(protocol) {
+  xiaoProtocolInputs.forEach((input) => {
+    input.checked = input.value === protocol;
+  });
+}
+
+function availableEnvsForFamily(family) {
+  const envs = state.config.envs.filter((env) => detectEnvFamily(env) === family);
+  if (family === "esp32c6" && isXiaoTemplateSelected()) {
+    const xiaoEnvs = envs.filter((env) => isXiaoEnv(env));
+    if (xiaoEnvs.length) {
+      return xiaoEnvs;
+    }
+  }
+  return envs;
+}
+
+function genericEsp32C6EnvForProtocol(protocol) {
+  const preferred = protocol === "zigbee" ? GENERIC_ESP32C6_ENVS.zigbee : GENERIC_ESP32C6_ENVS.wifi;
+  if (state.config.envs.includes(preferred)) {
+    return preferred;
+  }
+  return state.config.envs.find((env) => detectEnvFamily(env) === "esp32c6") || "";
+}
+
 function buildEnvFamilies() {
   const seen = new Set();
   state.envFamilies = state.config.envs
@@ -279,7 +349,7 @@ function renderProcessorSelect() {
 
 function renderEnvSelect(preferredEnv = "") {
   const family = els.processorSelect.value || state.envFamilies[0];
-  const envs = state.config.envs.filter((env) => detectEnvFamily(env) === family);
+  const envs = availableEnvsForFamily(family);
   els.envSelect.innerHTML = envs
     .map((env) => `<option value="${escapeHtml(env)}">${escapeHtml(env)}</option>`)
     .join("");
@@ -323,8 +393,47 @@ function templateVendor(name) {
 }
 
 function templateFamily(template) {
+  const name = String(template.NAME || "").toUpperCase();
+  if (name.includes("ESP32-C6") || name.includes("ESP32C6")) {
+    return "esp32c6";
+  }
+  if (name.includes("ESP32-C3") || name.includes("ESP32C3")) {
+    return "esp32c3";
+  }
   const gpioCount = Array.isArray(template.GPIO) ? template.GPIO.length : 0;
-  return gpioCount > 20 ? "esp32" : "esp82xx";
+  return gpioCount >= 20 ? "esp32" : "esp82xx";
+}
+
+function syncXiaoProtocolContext(preferredProtocol = "") {
+  if (isXiaoTemplateSelected()) {
+    els.processorSelect.value = "esp32c6";
+    const protocol = preferredProtocol || xiaoProtocolForEnv(els.envSelect.value) || selectedXiaoProtocol();
+    renderEnvSelect(xiaoEnvForProtocol(protocol));
+    setXiaoProtocol(protocol);
+    return;
+  }
+
+  if (els.processorSelect.value === "esp32c6" && isXiaoEnv(els.envSelect.value)) {
+    const protocol = xiaoProtocolForEnv(els.envSelect.value) || selectedXiaoProtocol();
+    renderEnvSelect(genericEsp32C6EnvForProtocol(protocol));
+  }
+}
+
+function updateXiaoProtocolVisibility() {
+  const visible = isXiaoTemplateSelected();
+  els.xiaoProtocolPanel.hidden = !visible;
+
+  if (!visible) {
+    return;
+  }
+
+  const protocol = xiaoProtocolForEnv(els.envSelect.value) || selectedXiaoProtocol();
+  setXiaoProtocol(protocol);
+  if (protocol === "zigbee") {
+    els.xiaoProtocolNote.textContent = "Tryb Zigbee ustawia dedykowany env XIAO z partycjami custom_zigbee_zczr i bibliotekami stosu Zigbee dla ESP32-C6.";
+  } else {
+    els.xiaoProtocolNote.textContent = "Tryb WiFi wybiera lżejszy env nolibs dla XIAO ESP32-C6. To dobry punkt startowy dla klasycznego firmware SUPLA.";
+  }
 }
 
 function applyDevicePreset(preset) {
@@ -351,6 +460,7 @@ function applyDevicePreset(preset) {
     const base = state.config.defaults.selected_options || [];
     state.selected = new Set([...base, ...preset.selectedOptions]);
   }
+  syncXiaoProtocolContext(preset.xiaoProtocol || "");
   normalizeSelection();
   renderAll();
 }
@@ -457,6 +567,7 @@ function renderDeviceGroups() {
       }
       renderTemplateSelect(templateName);
       els.templateSelect.value = templateName;
+      syncXiaoProtocolContext();
       renderAll();
     });
   });
@@ -757,6 +868,7 @@ function setDefaults() {
   state.selected = new Set(state.config.defaults.selected_options);
   state.currentBuildHash = "";
   state.lastBuildPayload = null;
+  setXiaoProtocol("wifi");
   els.languageSelect.value = state.config.defaults.language;
   els.processorSelect.value = detectEnvFamily(state.config.defaults.env);
   renderEnvSelect(state.config.defaults.env);
@@ -877,13 +989,16 @@ function renderSummary() {
   const hardwarePreset = currentDualR3Preset()?.label || els.hardwarePreset.value || "brak";
   const meterChip = isDualR3PresetActive() ? els.meterChip.value : "brak";
   const templateIssue = selectedTemplateCompatibilityIssue();
+  const xiaoProtocol = isXiaoTemplateSelected()
+    ? ` | protokół XIAO: <strong>${escapeHtml(xiaoProtocolLabel(xiaoProtocolForEnv(els.envSelect.value) || selectedXiaoProtocol()))}</strong>`
+    : "";
   els.selectionSummary.innerHTML = `
     <strong>${selectedList.length}</strong> aktywnych opcji |
     env: <strong>${escapeHtml(els.envSelect.value)}</strong> |
     język: <strong>${escapeHtml(els.languageSelect.value)}</strong> |
     template: <strong>${escapeHtml(templateName)}</strong> |
     preset: <strong>${escapeHtml(hardwarePreset)}</strong> |
-    pomiar: <strong>${escapeHtml(meterChip)}</strong>
+    pomiar: <strong>${escapeHtml(meterChip)}</strong>${xiaoProtocol}
     ${templateIssue ? `<br><strong>Uwaga:</strong> ${escapeHtml(templateIssue)}` : ""}
   `;
 }
@@ -933,6 +1048,7 @@ function renderStatus(payload) {
 
 function renderAll() {
   updateHardwarePresetVisibility();
+  updateXiaoProtocolVisibility();
   renderOptions();
   renderSummary();
   renderFeaturedDevices();
@@ -1381,8 +1497,8 @@ async function bootstrap() {
   els.languageSelect.addEventListener("change", renderAll);
   els.processorSelect.addEventListener("change", () => {
     renderEnvSelect();
-    renderSummary();
-    renderDeviceGroups();
+    syncXiaoProtocolContext();
+    renderAll();
   });
   els.templateFilter.addEventListener("input", () => {
     renderTemplateSelect(els.templateSelect.value);
@@ -1399,6 +1515,7 @@ async function bootstrap() {
       renderTemplateSelect(DUAL_R3_PM_TEMPLATE_NAME);
       els.templateSelect.value = DUAL_R3_PM_TEMPLATE_NAME;
     }
+    syncXiaoProtocolContext();
     normalizeSelection();
     renderAll();
   });
@@ -1410,9 +1527,27 @@ async function bootstrap() {
   [els.meterRxPin, els.meterTxPin, els.meterCfPin, els.meterCf1Pin, els.meterSelPin].forEach((input) => {
     input.addEventListener("input", renderSummary);
   });
-  els.templateSelect.addEventListener("change", renderSummary);
-  els.templateJson.addEventListener("input", renderSummary);
-  els.envSelect.addEventListener("change", renderSummary);
+  xiaoProtocolInputs.forEach((input) => {
+    input.addEventListener("change", () => {
+      if (!input.checked) {
+        return;
+      }
+      syncXiaoProtocolContext(input.value);
+      renderAll();
+    });
+  });
+  els.templateSelect.addEventListener("change", () => {
+    syncXiaoProtocolContext();
+    renderAll();
+  });
+  els.templateJson.addEventListener("input", () => {
+    syncXiaoProtocolContext();
+    renderAll();
+  });
+  els.envSelect.addEventListener("change", () => {
+    updateXiaoProtocolVisibility();
+    renderSummary();
+  });
   els.copyOtaButton.addEventListener("click", async () => {
     if (!els.otaUrl.value) {
       return;
