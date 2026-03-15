@@ -180,6 +180,32 @@ Dostępne są też gotowe warianty:
 
 Preset automatycznie ustawia bazowy template płytki, a warianty z licznikiem wypełniają też domyślne ustawienia układu pomiarowego.
 
+## Sonoff Pow / POWR Power Monitoring
+
+Lokalny builder ma teraz też osobne presety dla rodziny `Sonoff Pow R2`, klasycznego `Sonoff POW / POWR1` i `Sonoff POWR316`.
+
+Dostępne warianty w sekcji presetów sprzętowych:
+
+- `Sonoff Pow R2 Power Monitoring`
+- `Sonoff Pow R2 + CSE7766`
+- `Sonoff Pow R2 + CSE7759B-S`
+- `Sonoff Pow R2 /SEL + CSE7759 (manual)`
+- `Sonoff Pow R2 + CSE7759 (verified PCB 1739DIE)`
+- `Sonoff POW / POWR1 + CSE7759`
+- `Sonoff POWR316`
+- `Sonoff POWR316 + CSE7766`
+- `Sonoff POWR316 + CSE7759B-S`
+
+Zasady działania:
+
+- `CSE7759B-S` jest wystawiony jako osobna opcja buildowa `SUPLA_CSE7759B`, ale firmware używa obecnie tej samej ścieżki UART co `CSE7766`.
+- `CSE7759` jest wystawiony jako alias `SUPLA_CSE7759`, który mapuje się na istniejący driver `HLW8012` z pinami `CF/CF1/SEL`.
+- `Sonoff POW / POWR1 + CSE7759` jest traktowany jako stabilny preset dla starego wariantu impulsowego z mapą `SEL=GPIO5`, `CF1=GPIO13`, `CF=GPIO14`.
+- `Sonoff Pow R2 /SEL + CSE7759 (manual)` generuje własny template z ręcznie wpisanymi pinami `CF/CF1/SEL` i zostaje jako wariant ogólny dla innych rewizji PCB.
+- `Sonoff Pow R2 + CSE7759 (verified PCB 1739DIE)` używa zweryfikowanej mapy `SEL=GPIO5`, `CF1=GPIO13`, `CF=GPIO14`; w tym wariancie `CF1` współdzieli `GPIO13` z obwodem stockowego LED.
+
+Po flashu kalibracja napięcia i energii dla tych wariantów jest dostępna w GUI urządzenia w `Ustawienia urządzenia -> Inne -> Calibration`.
+
 ## Debian Installation
 
 Instrukcja instalacji na dowolnej maszynie z systemem opartym o Debiana jest w:

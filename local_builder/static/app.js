@@ -123,6 +123,17 @@ const HARDWARE_PRESETS = {
     label: "Sonoff Pow R2 /SEL + CSE7759 (manual)",
     customTemplate: true,
   },
+  sonoff_pow_r2_cse7759_verified_1739die: {
+    profile: "pow_hlw_manual",
+    templateName: POW_R2_HLW_TEMPLATE_NAME,
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    chip: "cse7759",
+    pins: { sel: 5, cf1: 13, cf: 14 },
+    label: "Sonoff Pow R2 + CSE7759 (verified PCB 1739DIE)",
+    customTemplate: true,
+    verifiedBoard: "CSE7759 1739DIE",
+  },
   sonoff_pow_cse7759: {
     profile: "pow_hlw_fixed",
     templateName: POW_CSE7759_TEMPLATE_NAME,
@@ -234,12 +245,22 @@ const FEATURED_DEVICE_PRESETS = [
   {
     id: "powr2-cse7759-manual",
     name: "Sonoff Pow R2 /SEL + CSE7759 (manual)",
-    description: "Eksperymentalny preset Pow R2 z ręcznym mapowaniem CF/CF1/SEL dla wariantu impulsowego CSE7759. Domyślne piny 5/13/14 są tylko hipotezą roboczą, a CF1=GPIO13 koliduje ze stockowym LED.",
+    description: "Ogólny preset manualny Pow R2 dla wariantu impulsowego CSE7759. Pozwala ręcznie wpisać mapę CF/CF1/SEL dla innych rewizji PCB.",
     templateName: POW_R2_HLW_TEMPLATE_NAME,
     processor: "esp82xx",
     env: "GUI_Generic_2MB",
     hardwarePreset: "sonoff_pow_r2_cse7759_manual",
-    chips: ["ESP8266", "CSE7759", "experimental"],
+    chips: ["ESP8266", "CSE7759", "manual"],
+  },
+  {
+    id: "powr2-cse7759-verified-1739die",
+    name: "Sonoff Pow R2 + CSE7759 (verified PCB 1739DIE)",
+    description: "Zweryfikowany preset dla PCB Pow R2 z układem CSE7759 1739DIE. Używa mapy SEL=GPIO5, CF1=GPIO13, CF=GPIO14; CF1 współdzieli GPIO13 z obwodem stockowego LED.",
+    templateName: POW_R2_HLW_TEMPLATE_NAME,
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    hardwarePreset: "sonoff_pow_r2_cse7759_verified_1739die",
+    chips: ["ESP8266", "CSE7759", "verified", "1739DIE"],
   },
   {
     id: "pow-cse7759",
@@ -964,22 +985,38 @@ function hardwarePresetRequirements(preset, chip) {
   if (preset.profile === "pow_hlw_manual") {
     switch (chip) {
       case "cse7759":
+        if (preset.verifiedBoard) {
+          return {
+            requiredPins: ["cf", "cf1", "sel"],
+            optionId: "SUPLA_CSE7759",
+            note: `Zweryfikowany preset dla Pow R2 z impulsowym CSE7759 na PCB ${preset.verifiedBoard}. Builder wygeneruje template z mapą SEL=GPIO5, CF1=GPIO13, CF=GPIO14. CF1 współdzieli GPIO13 z obwodem stockowego LED. Kalibracja napięcia jest dostępna po flashu w Ustawienia urządzenia -> Inne -> Calibration.`,
+          };
+        }
         return {
           requiredPins: ["cf", "cf1", "sel"],
           optionId: "SUPLA_CSE7759",
-          note: "Eksperymentalny preset dla Pow R2 z impulsowym CSE7759. Builder wygeneruje własny template z CF/CF1/SEL, ale domyślna mapa GPIO5/GPIO13/GPIO14 nie jest potwierdzona dla stockowego R2, a CF1=GPIO13 nadpisuje stockowy LED. Kalibracja napięcia jest dostępna po flashu w Ustawienia urządzenia -> Inne -> Calibration.",
+          note: "Manualny preset dla Pow R2 z impulsowym CSE7759. Builder wygeneruje własny template z CF/CF1/SEL i pozwala wpisać własną mapę pinów dla innych rewizji PCB. Kalibracja napięcia jest dostępna po flashu w Ustawienia urządzenia -> Inne -> Calibration.",
         };
       case "none":
+        if (preset.verifiedBoard) {
+          return {
+            requiredPins: [],
+            optionId: "",
+            note: `Preset ustawia bazowy template Pow R2 /SEL dla zweryfikowanego wariantu PCB ${preset.verifiedBoard} bez aktywnego pomiaru energii.`,
+          };
+        }
         return {
           requiredPins: [],
           optionId: "",
-          note: "Preset ustawia eksperymentalny bazowy template Pow R2 bez aktywnego pomiaru energii.",
+          note: "Preset ustawia bazowy template Pow R2 /SEL dla wariantu CSE7759 bez aktywnego pomiaru energii.",
         };
       default:
         return {
           requiredPins: [],
           optionId: "",
-          note: "Ten eksperymentalny preset obsługuje tylko impulsowy CSE7759 przez CF/CF1/SEL.",
+          note: preset.verifiedBoard
+            ? `Ten zweryfikowany preset jest przygotowany tylko dla impulsowego CSE7759 na PCB ${preset.verifiedBoard}.`
+            : "Ten manualny preset obsługuje tylko impulsowy CSE7759 przez CF/CF1/SEL.",
         };
     }
   }
