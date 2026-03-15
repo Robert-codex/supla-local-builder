@@ -1,0 +1,29 @@
+diff --git a/src/SuplaWebPageOther.cpp b/src/SuplaWebPageOther.cpp
+index daf66202..f84b6e38 100644
+--- a/src/SuplaWebPageOther.cpp
++++ b/src/SuplaWebPageOther.cpp
+@@ -751,7 +751,7 @@ void handleCounterCalibrate(int save) {
+   if (counter == PATH_HLW8012 || counter == HLW8012_MULTIPLIER) {
+     calibrationPath = PATH_HLW8012;
+     postPath = HLW8012_MULTIPLIER;
+-    formHeader = F("HLW8012 Multipliers");
++    formHeader = String(S_HLW8012) + " Multipliers";
+   }
+ #endif
+ #ifdef SUPLA_CSE7766
+diff --git a/src/src/language/common.h b/src/src/language/common.h
+index 23135436..46221e90 100644
+--- a/src/src/language/common.h
++++ b/src/src/language/common.h
+@@ -14,7 +14,11 @@
+ //### Device codes not translated ###
+ #define S_LED                            "LED"
+ #define S_HC_SR04                        "HC-SR04"
++#ifdef SUPLA_CSE7759
++#define S_HLW8012                        "CSE7759"
++#else
+ #define S_HLW8012                        "HLW8012"
++#endif
+ #define S_RGBW_RGB_DIMMER                "RGBW/RGB/DIMMER"
+ #define S_OLED                           "OLED"
+ #define S_BME280                         "BME280"

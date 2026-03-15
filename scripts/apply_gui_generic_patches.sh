@@ -33,6 +33,10 @@ snippet = """  if (rxPin == 2 && txPin == -1) {
 raise SystemExit(0 if snippet in text else 1)
 PY
       ;;
+    0003-cse7759-alias-label.patch)
+      grep -q '#ifdef SUPLA_CSE7759' "${SUBMODULE_DIR}/src/src/language/common.h" &&
+      grep -q 'String(S_HLW8012) + " Multipliers"' "${SUBMODULE_DIR}/src/SuplaWebPageOther.cpp"
+      ;;
     *)
       return 1
       ;;
