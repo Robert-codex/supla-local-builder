@@ -16,7 +16,7 @@ const state = {
 const DUAL_R3_PM_TEMPLATE_NAME = "Sonoff Dual R3 Power Monitoring";
 const DUAL_R3_V2_PM_TEMPLATE_NAME = "Sonoff Dual R3 v2 Power Monitoring";
 const POW_R2_TEMPLATE_NAME = "Sonoff Pow R2 Power Monitoring";
-const POW_R2_HLW_TEMPLATE_NAME = "Sonoff Pow R2 Power Monitoring (CSE7759 manual)";
+const POW_R2_HLW_TEMPLATE_NAME = "Sonoff Pow R2 /SEL Power Monitoring (CSE7759 manual)";
 const POW_CSE7759_TEMPLATE_NAME = "Sonoff POW / POWR1 Power Monitoring (CSE7759)";
 const POWR316_TEMPLATE_NAME = "Sonoff POW Origin 16A Power Monitoring Switch Module (POWR316)";
 const XIAO_ESP32C6_TEMPLATE_NAME = "Seeed Studio XIAO ESP32C6";
@@ -120,7 +120,7 @@ const HARDWARE_PRESETS = {
     env: "GUI_Generic_2MB",
     chip: "cse7759",
     pins: { sel: 5, cf1: 13, cf: 14 },
-    label: "Sonoff Pow R2 + CSE7759 (manual)",
+    label: "Sonoff Pow R2 /SEL + CSE7759 (manual)",
     customTemplate: true,
   },
   sonoff_pow_cse7759: {
@@ -233,7 +233,7 @@ const FEATURED_DEVICE_PRESETS = [
   },
   {
     id: "powr2-cse7759-manual",
-    name: "Sonoff Pow R2 + CSE7759 (manual)",
+    name: "Sonoff Pow R2 /SEL + CSE7759 (manual)",
     description: "Eksperymentalny preset Pow R2 z ręcznym mapowaniem CF/CF1/SEL dla wariantu impulsowego CSE7759. Domyślne piny 5/13/14 są tylko hipotezą roboczą, a CF1=GPIO13 koliduje ze stockowym LED.",
     templateName: POW_R2_HLW_TEMPLATE_NAME,
     processor: "esp82xx",

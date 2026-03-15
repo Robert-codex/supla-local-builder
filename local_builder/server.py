@@ -58,7 +58,7 @@ LOCAL_TEMPLATE_BOARDS: list[dict[str, Any]] = [
         "FLAG": 0,
     },
     {
-        "NAME": "Sonoff Pow R2 Power Monitoring (CSE7759 manual)",
+        "NAME": "Sonoff Pow R2 /SEL Power Monitoring (CSE7759 manual)",
         "GPIO": [17, 0, 0, 0, 0, 0, 0, 0, 21, 56, 0, 0, 0],
         "FLAG": 0,
     },
