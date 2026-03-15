@@ -3,12 +3,40 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SUBMODULE_DIR="${ROOT_DIR}/external/GUI-Generic"
-PATCH_FILE="${ROOT_DIR}/patches/gui-generic/0001-local-mqtt-zigbee-builder.patch"
+PATCH_DIR="${ROOT_DIR}/patches/gui-generic"
 
 patch_markers_present() {
-  [[ -f "${SUBMODULE_DIR}/src/src/zigbee/SuplaZigbeeGateway.h" ]] &&
-  grep -q "SUPLA_CSE7761" "${SUBMODULE_DIR}/builder.json" &&
-  grep -q "FUNCTION_CSE7761_RX" "${SUBMODULE_DIR}/src/SuplaConfigManager.h"
+  local patch_name
+  patch_name="$(basename "$1")"
+
+  case "${patch_name}" in
+    0001-local-mqtt-zigbee-builder.patch)
+      [[ -f "${SUBMODULE_DIR}/src/src/zigbee/SuplaZigbeeGateway.h" ]] &&
+      grep -q "SUPLA_CSE7761" "${SUBMODULE_DIR}/builder.json" &&
+      grep -q "FUNCTION_CSE7761_RX" "${SUBMODULE_DIR}/src/SuplaConfigManager.h"
+      ;;
+    0002-esp8266-serial-fallback.patch)
+      python3 - "${SUBMODULE_DIR}/src/SuplaConfigESP.cpp" <<'PY'
+from pathlib import Path
+import sys
+
+text = Path(sys.argv[1]).read_text(encoding="utf-8")
+snippet = """  if (rxPin == 2 && txPin == -1) {
+    return Serial1;
+  }
+
+  return Serial;
+#else
+  return Serial0;
+#endif
+"""
+raise SystemExit(0 if snippet in text else 1)
+PY
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 }
 
 if [[ ! -d "${SUBMODULE_DIR}/.git" && ! -f "${SUBMODULE_DIR}/.git" ]]; then
@@ -17,28 +45,42 @@ if [[ ! -d "${SUBMODULE_DIR}/.git" && ! -f "${SUBMODULE_DIR}/.git" ]]; then
   exit 1
 fi
 
-if [[ ! -f "${PATCH_FILE}" ]]; then
-  echo "Brak pliku patcha: ${PATCH_FILE}" >&2
+if [[ ! -d "${PATCH_DIR}" ]]; then
+  echo "Brak katalogu z patchami: ${PATCH_DIR}" >&2
   exit 1
 fi
 
-if git -C "${SUBMODULE_DIR}" apply --reverse --check "${PATCH_FILE}" >/dev/null 2>&1; then
-  echo "GUI-Generic local patch set is already present."
-  exit 0
+shopt -s nullglob
+PATCH_FILES=("${PATCH_DIR}"/*.patch)
+shopt -u nullglob
+
+if [[ ${#PATCH_FILES[@]} -eq 0 ]]; then
+  echo "Brak plików patcha w katalogu: ${PATCH_DIR}" >&2
+  exit 1
 fi
 
-if patch_markers_present; then
-  echo "GUI-Generic local patch markers are already present."
-  exit 0
-fi
+for patch_file in "${PATCH_FILES[@]}"; do
+  patch_name="$(basename "${patch_file}")"
 
-if git -C "${SUBMODULE_DIR}" apply --check "${PATCH_FILE}" >/dev/null 2>&1; then
-  git -C "${SUBMODULE_DIR}" apply "${PATCH_FILE}"
-  echo "Applied GUI-Generic local patch set."
-  exit 0
-fi
+  if patch_markers_present "${patch_file}"; then
+    echo "${patch_name} is already present."
+    continue
+  fi
 
-echo "Nie można nałożyć patcha na aktualny stan submodule ${SUBMODULE_DIR}." >&2
-echo "Jeżeli submodule śledzi już commit z gałęzi local-builder-patches, nie trzeba robić nic więcej." >&2
-echo "W przeciwnym razie sprawdź stan gałęzi w ${SUBMODULE_DIR} i dopiero potem spróbuj ponownie." >&2
-exit 1
+  if git -C "${SUBMODULE_DIR}" apply --reverse --check "${patch_file}" >/dev/null 2>&1; then
+    echo "${patch_name} is already present."
+    continue
+  fi
+
+  if git -C "${SUBMODULE_DIR}" apply --check "${patch_file}" >/dev/null 2>&1; then
+    git -C "${SUBMODULE_DIR}" apply "${patch_file}"
+    echo "Applied ${patch_name}."
+    continue
+  fi
+
+  echo "Nie można nałożyć patcha ${patch_name} na aktualny stan submodule ${SUBMODULE_DIR}." >&2
+  echo "Sprawdź stan gałęzi w ${SUBMODULE_DIR} i zgodność patcha z aktualnym upstream." >&2
+  exit 1
+done
+
+echo "GUI-Generic local patch set is up to date."
