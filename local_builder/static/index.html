@@ -107,14 +107,24 @@
                   <option value="sonoff_dual_r3_pm_bl0930">Sonoff Dual R3 + BL0930</option>
                   <option value="sonoff_dual_r3_pm_cse7761">Sonoff Dual R3 + CSE7761</option>
                   <option value="sonoff_dual_r3_pm_cse7766">Sonoff Dual R3 + CSE7766</option>
+                  <option value="sonoff_pow_r2_meter">Sonoff Pow R2 Power Monitoring</option>
+                  <option value="sonoff_pow_r2_cse7766">Sonoff Pow R2 + CSE7766</option>
+                  <option value="sonoff_pow_r2_cse7759b">Sonoff Pow R2 + CSE7759B-S</option>
+                  <option value="sonoff_pow_r2_cse7759_manual">Sonoff Pow R2 + CSE7759 (manual)</option>
+                  <option value="sonoff_pow_cse7759">Sonoff POW / POWR1 + CSE7759</option>
+                  <option value="sonoff_powr316_meter">Sonoff POWR316</option>
+                  <option value="sonoff_powr316_cse7766">Sonoff POWR316 + CSE7766</option>
+                  <option value="sonoff_powr316_cse7759b">Sonoff POWR316 + CSE7759B-S</option>
                 </select>
               </label>
               <label>
                 <span>Układ pomiarowy</span>
                 <select id="meterChip">
                   <option value="none">brak</option>
+                  <option value="cse7759">CSE7759</option>
                   <option value="cse7761">CSE7761</option>
                   <option value="cse7766">CSE7766</option>
+                  <option value="cse7759b">CSE7759B-S</option>
                   <option value="bl0930">BL0930</option>
                 </select>
               </label>
@@ -140,7 +150,7 @@
               </label>
             </div>
             <div id="hardwarePresetNote" class="preset-note">
-              Presety `DUALR3` automatycznie ustawiają bazowe GPIO przekaźników i przycisków. Możesz użyć wariantu ogólnego albo gotowego profilu `BL0930`, `CSE7761` lub `CSE7766`.
+              Presety sprzętowe ustawiają bazowy template płytki. `CSE7759B-S` dostaje osobną flagę buildu, ale nadal używa zgodnej ścieżki UART `CSE7766`. Impulsowy `CSE7759` jest wystawiony jako stabilny preset dla `Sonoff POW / POWR1` oraz eksperymentalny preset manualny dla `Pow R2`; w tym drugim domyślne `CF1=GPIO13` nadpisuje stockowy LED. Kalibracja napięcia jest dostępna po flashu w GUI urządzenia.
             </div>
           </section>
           <label class="wide">

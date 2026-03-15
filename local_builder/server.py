@@ -52,7 +52,90 @@ LOCAL_TEMPLATE_BOARDS: list[dict[str, Any]] = [
         "GPIO": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 544, 0, 0, 0, 0, 0, 0, 0, 0],
         "FLAG": 0,
     },
+    {
+        "NAME": "Sonoff Pow R2 Power Monitoring",
+        "GPIO": [17, 145, 0, 146, 0, 0, 0, 0, 21, 56, 0, 0, 0],
+        "FLAG": 0,
+    },
+    {
+        "NAME": "Sonoff Pow R2 Power Monitoring (CSE7759 manual)",
+        "GPIO": [17, 0, 0, 0, 0, 0, 0, 0, 21, 56, 0, 0, 0],
+        "FLAG": 0,
+    },
+    {
+        "NAME": "Sonoff Pow",
+        "GPIO": [17, 0, 0, 0, 0, 131, 0, 0, 21, 132, 133, 52, 0],
+        "FLAG": 0,
+    },
+    {
+        "NAME": "Sonoff POW / POWR1 Power Monitoring (CSE7759)",
+        "GPIO": [17, 0, 0, 0, 0, 131, 0, 0, 21, 132, 133, 52, 0],
+        "FLAG": 0,
+    },
+    {
+        "NAME": "Sonoff POWR316",
+        "GPIO": [32, 0, 0, 0, 0, 576, 0, 0, 0, 224, 0, 0, 3104, 0, 320, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "FLAG": 0,
+    },
+    {
+        "NAME": "Sonoff POW Origin 16A Power Monitoring Switch Module (POWR316)",
+        "GPIO": [32, 0, 0, 0, 0, 576, 0, 0, 0, 224, 0, 0, 3104, 0, 320, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        "FLAG": 0,
+    },
 ]
+
+LOCAL_OPTION_ALIASES: dict[str, dict[str, Any]] = {
+    "SUPLA_CSE7759": {
+        "base_option": "SUPLA_HLW8012",
+        "meta": {
+            "name": "Licznik energii CSE7759",
+            "desc": "Alias buildowy dla impulsowego wariantu CSE7759. Na poziomie firmware używa obecnie istniejącej ścieżki HLW8012 z pinami CF/CF1/SEL.",
+            "defOn": False,
+            "opts": "-D SUPLA_HLW8012",
+            "en": {
+                "name": "Energy meter CSE7759",
+                "desc": "Build-time alias for the pulse-based CSE7759 variant. Firmware currently uses the existing HLW8012 path with CF/CF1/SEL pins.",
+            },
+            "es": {
+                "name": "Contador de energía CSE7759",
+                "desc": "Alias de compilación para la variante por impulsos CSE7759. El firmware usa actualmente la ruta existente HLW8012 con pines CF/CF1/SEL.",
+            },
+            "de": {
+                "name": "Energiezähler CSE7759",
+                "desc": "Build-Alias für die impulsbasierte CSE7759-Variante. Die Firmware verwendet derzeit den vorhandenen HLW8012-Pfad mit CF/CF1/SEL-Pins.",
+            },
+            "fr": {
+                "name": "Compteur d´énergie CSE7759",
+                "desc": "Alias de compilation pour la variante impulsionnelle CSE7759. Le firmware utilise actuellement le chemin HLW8012 existant avec les broches CF/CF1/SEL.",
+            },
+        },
+    },
+    "SUPLA_CSE7759B": {
+        "base_option": "SUPLA_CSE7766",
+        "meta": {
+            "name": "Licznik energii CSE7759B-S",
+            "desc": "Alias buildowy dla wariantu UART CSE7759B-S. Na poziomie firmware używa obecnie tej samej ścieżki co CSE7766.",
+            "defOn": False,
+            "opts": "-D SUPLA_CSE7766",
+            "en": {
+                "name": "Energy meter CSE7759B-S",
+                "desc": "Build-time alias for the UART CSE7759B-S variant. Firmware currently uses the same code path as CSE7766.",
+            },
+            "es": {
+                "name": "Contador de energía CSE7759B-S",
+                "desc": "Alias de compilación para la variante UART CSE7759B-S. El firmware usa actualmente la misma ruta que CSE7766.",
+            },
+            "de": {
+                "name": "Energiezähler CSE7759B-S",
+                "desc": "Build-Alias für die UART-Variante CSE7759B-S. Die Firmware verwendet derzeit denselben Pfad wie CSE7766.",
+            },
+            "fr": {
+                "name": "Compteur d´énergie CSE7759B-S",
+                "desc": "Alias de compilation pour la variante UART CSE7759B-S. Le firmware utilise actuellement le même chemin que CSE7766.",
+            },
+        },
+    }
+}
 
 
 def ensure_dirs() -> None:
@@ -448,12 +531,34 @@ class BuilderCatalog:
     def __init__(self, gui_generic_dir: Path) -> None:
         self.gui_generic_dir = gui_generic_dir
         self.builder_data = load_json(gui_generic_dir / "builder.json")
+        self._merge_local_option_aliases()
         upstream_template_boards = load_json(gui_generic_dir / "template_boards.json")
         self.template_boards = self._merge_template_boards(upstream_template_boards, LOCAL_TEMPLATE_BOARDS)
         self.section_labels = self.builder_data.get("SECTIONS", {})
         self.section_keys = [key for key in self.builder_data.keys() if key not in ("version", "Opis struktury", "SECTIONS")]
         self.option_index = self._index_options()
         self.envs = parse_env_names(gui_generic_dir / "platformio.ini")
+
+    def _merge_local_option_aliases(self) -> None:
+        for option_id, payload in LOCAL_OPTION_ALIASES.items():
+            base_option = str(payload.get("base_option", "")).strip()
+            if not base_option:
+                continue
+            section_key = self._find_option_section(base_option)
+            if not section_key:
+                continue
+            section = self.builder_data.setdefault(section_key, {})
+            if option_id in section:
+                continue
+            section[option_id] = dict(payload.get("meta", {}))
+
+    def _find_option_section(self, option_id: str) -> str:
+        for section, options in self.builder_data.items():
+            if section in ("version", "Opis struktury", "SECTIONS"):
+                continue
+            if isinstance(options, dict) and option_id in options:
+                return section
+        return ""
 
     def _merge_template_boards(
         self,

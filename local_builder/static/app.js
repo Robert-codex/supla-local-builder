@@ -15,6 +15,10 @@ const state = {
 
 const DUAL_R3_PM_TEMPLATE_NAME = "Sonoff Dual R3 Power Monitoring";
 const DUAL_R3_V2_PM_TEMPLATE_NAME = "Sonoff Dual R3 v2 Power Monitoring";
+const POW_R2_TEMPLATE_NAME = "Sonoff Pow R2 Power Monitoring";
+const POW_R2_HLW_TEMPLATE_NAME = "Sonoff Pow R2 Power Monitoring (CSE7759 manual)";
+const POW_CSE7759_TEMPLATE_NAME = "Sonoff POW / POWR1 Power Monitoring (CSE7759)";
+const POWR316_TEMPLATE_NAME = "Sonoff POW Origin 16A Power Monitoring Switch Module (POWR316)";
 const XIAO_ESP32C6_TEMPLATE_NAME = "Seeed Studio XIAO ESP32C6";
 const XIAO_ESP32C6_ENVS = {
   wifi: "GUI_Generic_ESP32C6_XIAO_nolibs",
@@ -29,34 +33,131 @@ const DUAL_R3_PM_BASE_GPIO = [
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224,
   0, 0, 0, 0, 160, 161, 0, 0, 0, 0, 0, 0,
 ];
+const POW_R2_BASE_GPIO = [17, 0, 0, 0, 0, 0, 0, 0, 21, 56, 0, 0, 0];
 const TEMPLATE_CODES = {
   cse7766Rx: 3104,
   cse7761Tx: 7296,
   cse7761Rx: 7328,
   cf: 2688,
+  cfOld: 133,
+  cf1Old: 132,
+  selOld: 131,
 };
-const DUAL_R3_REQUIRED_OPTIONS = ["SUPLA_RELAY", "SUPLA_BUTTON"];
-const DUAL_R3_METER_OPTIONS = ["SUPLA_CSE7761", "SUPLA_CSE7766", "SUPLA_BL0930", "SUPLA_BL0939"];
-const DUAL_R3_PRESETS = {
+const HARDWARE_REQUIRED_OPTIONS = ["SUPLA_RELAY", "SUPLA_BUTTON"];
+const HARDWARE_METER_OPTIONS = ["SUPLA_HLW8012", "SUPLA_CSE7759", "SUPLA_CSE7761", "SUPLA_CSE7766", "SUPLA_CSE7759B", "SUPLA_BL0930", "SUPLA_BL0939"];
+const HARDWARE_PRESETS = {
   sonoff_dual_r3_pm: {
+    profile: "dualr3",
+    templateName: DUAL_R3_PM_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
     chip: "none",
     pins: {},
     label: "Sonoff Dual R3 Power Monitoring",
+    customTemplate: true,
   },
   sonoff_dual_r3_pm_bl0930: {
+    profile: "dualr3",
+    templateName: DUAL_R3_PM_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
     chip: "bl0930",
     pins: {},
     label: "Sonoff Dual R3 + BL0930",
+    customTemplate: true,
   },
   sonoff_dual_r3_pm_cse7761: {
+    profile: "dualr3",
+    templateName: DUAL_R3_PM_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
     chip: "cse7761",
     pins: { tx: 25, rx: 26 },
     label: "Sonoff Dual R3 + CSE7761",
+    customTemplate: true,
   },
   sonoff_dual_r3_pm_cse7766: {
+    profile: "dualr3",
+    templateName: DUAL_R3_PM_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
     chip: "cse7766",
     pins: { rx: 26 },
     label: "Sonoff Dual R3 + CSE7766",
+    customTemplate: true,
+  },
+  sonoff_pow_r2_meter: {
+    profile: "pow_uart",
+    templateName: POW_R2_TEMPLATE_NAME,
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    chip: "none",
+    pins: {},
+    label: "Sonoff Pow R2 Power Monitoring",
+  },
+  sonoff_pow_r2_cse7766: {
+    profile: "pow_uart",
+    templateName: POW_R2_TEMPLATE_NAME,
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    chip: "cse7766",
+    pins: {},
+    label: "Sonoff Pow R2 + CSE7766",
+  },
+  sonoff_pow_r2_cse7759b: {
+    profile: "pow_uart",
+    templateName: POW_R2_TEMPLATE_NAME,
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    chip: "cse7759b",
+    pins: {},
+    label: "Sonoff Pow R2 + CSE7759B-S",
+  },
+  sonoff_pow_r2_cse7759_manual: {
+    profile: "pow_hlw_manual",
+    templateName: POW_R2_HLW_TEMPLATE_NAME,
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    chip: "cse7759",
+    pins: { sel: 5, cf1: 13, cf: 14 },
+    label: "Sonoff Pow R2 + CSE7759 (manual)",
+    customTemplate: true,
+  },
+  sonoff_pow_cse7759: {
+    profile: "pow_hlw_fixed",
+    templateName: POW_CSE7759_TEMPLATE_NAME,
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    chip: "cse7759",
+    pins: { sel: 5, cf1: 13, cf: 14 },
+    label: "Sonoff POW / POWR1 + CSE7759",
+  },
+  sonoff_powr316_meter: {
+    profile: "pow_uart",
+    templateName: POWR316_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
+    chip: "none",
+    pins: {},
+    label: "Sonoff POWR316",
+  },
+  sonoff_powr316_cse7766: {
+    profile: "pow_uart",
+    templateName: POWR316_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
+    chip: "cse7766",
+    pins: {},
+    label: "Sonoff POWR316 + CSE7766",
+  },
+  sonoff_powr316_cse7759b: {
+    profile: "pow_uart",
+    templateName: POWR316_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
+    chip: "cse7759b",
+    pins: {},
+    label: "Sonoff POWR316 + CSE7759B-S",
   },
 };
 const FEATURED_DEVICE_PRESETS = [
@@ -99,6 +200,86 @@ const FEATURED_DEVICE_PRESETS = [
     env: "GUI_Generic_ESP32",
     hardwarePreset: "sonoff_dual_r3_pm_bl0930",
     chips: ["ESP32", "BL0930"],
+  },
+  {
+    id: "powr2-meter",
+    name: "Sonoff Pow R2 Power Monitoring",
+    description: "Preset Pow R2 z wyborem UART-owego układu pomiarowego w czasie buildu.",
+    templateName: POW_R2_TEMPLATE_NAME,
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    hardwarePreset: "sonoff_pow_r2_meter",
+    chips: ["ESP8266", "Pow R2", "Power Monitoring"],
+  },
+  {
+    id: "powr2-cse7766",
+    name: "Sonoff Pow R2 + CSE7766",
+    description: "Gotowy preset Pow R2 dla wariantu z CSE7766.",
+    templateName: POW_R2_TEMPLATE_NAME,
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    hardwarePreset: "sonoff_pow_r2_cse7766",
+    chips: ["ESP8266", "CSE7766"],
+  },
+  {
+    id: "powr2-cse7759b",
+    name: "Sonoff Pow R2 + CSE7759B-S",
+    description: "Preset Pow R2 dla wariantu UART CSE7759B-S obsługiwanego ścieżką zgodną z CSE7766.",
+    templateName: POW_R2_TEMPLATE_NAME,
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    hardwarePreset: "sonoff_pow_r2_cse7759b",
+    chips: ["ESP8266", "CSE7759B-S"],
+  },
+  {
+    id: "powr2-cse7759-manual",
+    name: "Sonoff Pow R2 + CSE7759 (manual)",
+    description: "Eksperymentalny preset Pow R2 z ręcznym mapowaniem CF/CF1/SEL dla wariantu impulsowego CSE7759. Domyślne piny 5/13/14 są tylko hipotezą roboczą, a CF1=GPIO13 koliduje ze stockowym LED.",
+    templateName: POW_R2_HLW_TEMPLATE_NAME,
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    hardwarePreset: "sonoff_pow_r2_cse7759_manual",
+    chips: ["ESP8266", "CSE7759", "experimental"],
+  },
+  {
+    id: "pow-cse7759",
+    name: "Sonoff POW / POWR1 + CSE7759",
+    description: "Preset dla impulsowego wariantu CSE7759/HLW8012 z mapą SEL=GPIO5, CF1=GPIO13, CF=GPIO14 i kalibracją w GUI urządzenia.",
+    templateName: POW_CSE7759_TEMPLATE_NAME,
+    processor: "esp82xx",
+    env: "GUI_Generic_2MB",
+    hardwarePreset: "sonoff_pow_cse7759",
+    chips: ["ESP8266", "CSE7759", "HLW8012", "POWR1"],
+  },
+  {
+    id: "powr316-meter",
+    name: "Sonoff POWR316",
+    description: "Preset POWR316 z wyborem UART-owego układu pomiarowego w czasie buildu.",
+    templateName: POWR316_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
+    hardwarePreset: "sonoff_powr316_meter",
+    chips: ["ESP32", "POWR316", "Power Monitoring"],
+  },
+  {
+    id: "powr316-cse7766",
+    name: "Sonoff POWR316 + CSE7766",
+    description: "Gotowy preset POWR316 dla wariantu z CSE7766.",
+    templateName: POWR316_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
+    hardwarePreset: "sonoff_powr316_cse7766",
+    chips: ["ESP32", "CSE7766"],
+  },
+  {
+    id: "powr316-cse7759b",
+    name: "Sonoff POWR316 + CSE7759B-S",
+    description: "Preset POWR316 dla wariantu UART CSE7759B-S obsługiwanego ścieżką zgodną z CSE7766.",
+    templateName: POWR316_TEMPLATE_NAME,
+    processor: "esp32",
+    env: "GUI_Generic_ESP32",
+    hardwarePreset: "sonoff_powr316_cse7759b",
+    chips: ["ESP32", "CSE7759B-S"],
   },
   {
     id: "dualr3-v2-bl0939-layout",
@@ -159,12 +340,11 @@ const FEATURED_DEVICE_PRESETS = [
   {
     id: "sonoff-pow",
     name: "Sonoff Pow R2",
-    description: "Konfiguracja z wbudowanym licznikiem energii CSE7766/CSE7761.",
-    templateName: "Sonoff Pow R2",
+    description: "Szybki preset Pow R2 z domyślną ścieżką CSE7766.",
+    templateName: POW_R2_TEMPLATE_NAME,
     processor: "esp82xx",
     env: "GUI_Generic_2MB",
-    hardwarePreset: "",
-    selectedOptions: ["SUPLA_RELAY", "SUPLA_BUTTON", "SUPLA_CSE7766"],
+    hardwarePreset: "sonoff_pow_r2_cse7766",
     chips: ["Sonoff", "CSE7766"],
   },
 ];
@@ -459,7 +639,7 @@ function applyDevicePreset(preset) {
   }
   els.hardwarePreset.value = preset.hardwarePreset || "";
   if (preset.hardwarePreset) {
-    applyDualR3PresetDefaults();
+    applyHardwarePresetDefaults();
   } else {
     resetHardwarePresetInputs();
   }
@@ -660,6 +840,32 @@ function templateIndexForEsp32Pin(pin) {
   return null;
 }
 
+function templateIndexForEsp8266Pin(pin) {
+  if (!Number.isInteger(pin) || pin < 0 || pin > 16) {
+    return null;
+  }
+  if (pin <= 5) {
+    return pin;
+  }
+  if (pin === 9) {
+    return 6;
+  }
+  if (pin === 10) {
+    return 7;
+  }
+  if (pin >= 12 && pin <= 16) {
+    return pin - 4;
+  }
+  return null;
+}
+
+function templateIndexForProcessor(processor, pin) {
+  if (processor === "esp82xx") {
+    return templateIndexForEsp8266Pin(pin);
+  }
+  return templateIndexForEsp32Pin(pin);
+}
+
 function parseOptionalPin(value) {
   if (value === "") {
     return null;
@@ -668,8 +874,8 @@ function parseOptionalPin(value) {
   return Number.isInteger(parsed) ? parsed : null;
 }
 
-function setTemplatePin(template, pin, code) {
-  const index = templateIndexForEsp32Pin(pin);
+function setTemplatePin(template, pin, code, processor = "esp32") {
+  const index = templateIndexForProcessor(processor, pin);
   if (index === null) {
     return false;
   }
@@ -680,12 +886,12 @@ function setTemplatePin(template, pin, code) {
   return true;
 }
 
-function isDualR3PresetActive() {
-  return Object.hasOwn(DUAL_R3_PRESETS, els.hardwarePreset.value);
+function isHardwarePresetActive() {
+  return Object.hasOwn(HARDWARE_PRESETS, els.hardwarePreset.value);
 }
 
-function currentDualR3Preset() {
-  return DUAL_R3_PRESETS[els.hardwarePreset.value] || null;
+function currentHardwarePreset() {
+  return HARDWARE_PRESETS[els.hardwarePreset.value] || null;
 }
 
 function resetHardwarePresetInputs() {
@@ -707,7 +913,7 @@ function clearHardwarePresetSelection() {
     els.meterCfPin.value ||
     els.meterCf1Pin.value ||
     els.meterSelPin.value ||
-    DUAL_R3_METER_OPTIONS.some((optionId) => state.selected.has(optionId))
+    HARDWARE_METER_OPTIONS.some((optionId) => state.selected.has(optionId))
   );
 
   if (!hadPreset) {
@@ -715,13 +921,92 @@ function clearHardwarePresetSelection() {
   }
 
   resetHardwarePresetInputs();
-  for (const optionId of DUAL_R3_METER_OPTIONS) {
+  for (const optionId of HARDWARE_METER_OPTIONS) {
     state.selected.delete(optionId);
   }
   return true;
 }
 
-function dualR3MeterRequirements(chip) {
+function hardwarePresetRequirements(preset, chip) {
+  if (!preset) {
+    return { requiredPins: [], optionId: "", note: "Preset sprzętowy nie jest aktywny." };
+  }
+
+  if (preset.profile === "pow_uart") {
+    switch (chip) {
+      case "cse7766":
+        return {
+          requiredPins: [],
+          optionId: "SUPLA_CSE7766",
+          note: "Pow R2 i POWR316 używają tu gotowego template z już wpisanym torem UART. Builder tylko dobiera wariant firmware podczas buildu.",
+        };
+      case "cse7759b":
+        return {
+          requiredPins: [],
+          optionId: "SUPLA_CSE7759B",
+          note: "CSE7759B-S dostaje osobną flagę buildu `SUPLA_CSE7759B`, ale firmware mapuje ją obecnie na istniejącą ścieżkę UART CSE7766. Podstawą jest zgodność 24-bajtowej ramki 4800 bps z datasheetu CSE7759B-S.",
+        };
+      case "none":
+        return {
+          requiredPins: [],
+          optionId: "",
+          note: "Preset ustawia tylko bazowy template płytki. Pomiar energii pozostaje wyłączony.",
+        };
+      default:
+        return {
+          requiredPins: [],
+          optionId: "",
+          note: "Dla tego presetu builder obsługuje tylko warianty UART CSE7766 i CSE7759B-S. Impulsowy CSE7759 wymaga osobnego mapowania CF/CF1/SEL.",
+        };
+    }
+  }
+
+  if (preset.profile === "pow_hlw_manual") {
+    switch (chip) {
+      case "cse7759":
+        return {
+          requiredPins: ["cf", "cf1", "sel"],
+          optionId: "SUPLA_CSE7759",
+          note: "Eksperymentalny preset dla Pow R2 z impulsowym CSE7759. Builder wygeneruje własny template z CF/CF1/SEL, ale domyślna mapa GPIO5/GPIO13/GPIO14 nie jest potwierdzona dla stockowego R2, a CF1=GPIO13 nadpisuje stockowy LED. Kalibracja napięcia jest dostępna po flashu w Ustawienia urządzenia -> Inne -> Calibration.",
+        };
+      case "none":
+        return {
+          requiredPins: [],
+          optionId: "",
+          note: "Preset ustawia eksperymentalny bazowy template Pow R2 bez aktywnego pomiaru energii.",
+        };
+      default:
+        return {
+          requiredPins: [],
+          optionId: "",
+          note: "Ten eksperymentalny preset obsługuje tylko impulsowy CSE7759 przez CF/CF1/SEL.",
+        };
+    }
+  }
+
+  if (preset.profile === "pow_hlw_fixed") {
+    switch (chip) {
+      case "cse7759":
+        return {
+          requiredPins: [],
+          optionId: "SUPLA_CSE7759",
+          note: "To preset dla klasycznego Sonoff POW/POWR1 z impulsowym CSE7759. Używa mapy SEL=GPIO5, CF1=GPIO13, CF=GPIO14 i drivera HLW8012. Kalibracja napięcia jest dostępna po flashu w Ustawienia urządzenia -> Inne -> Calibration.",
+        };
+      case "none":
+        return {
+          requiredPins: [],
+          optionId: "",
+          note: "Preset ustawia bazowy template klasycznego Sonoff POW/POWR1, ale pomiar energii pozostaje wyłączony.",
+        };
+      default:
+        return {
+          requiredPins: [],
+          optionId: "",
+          note: "Ten preset jest tylko dla impulsowego CSE7759/HLW8012 w Sonoff POW/POWR1. Fabryczny Pow R2 używa zwykle UART CSE7766.",
+        };
+    }
+  }
+
   switch (chip) {
     case "cse7761":
       return {
@@ -752,25 +1037,45 @@ function dualR3MeterRequirements(chip) {
 
 function updateHardwarePresetVisibility() {
   els.hardwarePresetPanel.hidden = false;
-  const active = isDualR3PresetActive();
+  const preset = currentHardwarePreset();
+  const active = Boolean(preset);
+  const customTemplate = Boolean(preset?.customTemplate);
   els.meterChip.disabled = !active;
-  els.meterRxPin.disabled = !active;
-  els.meterTxPin.disabled = !active;
-  els.meterCfPin.disabled = !active;
-  els.meterCf1Pin.disabled = !active;
-  els.meterSelPin.disabled = !active;
+  els.meterRxPin.disabled = !customTemplate;
+  els.meterTxPin.disabled = !customTemplate;
+  els.meterCfPin.disabled = !customTemplate;
+  els.meterCf1Pin.disabled = !customTemplate;
+  els.meterSelPin.disabled = !customTemplate;
 
   if (!active) {
     els.hardwarePresetNote.textContent = "Presety sprzętowe składają gotowy template bez ręcznego pisania JSON-a.";
     return;
   }
 
-  const preset = currentDualR3Preset();
   const prefix = preset ? `${preset.label}. ` : "";
-  els.hardwarePresetNote.textContent = `${prefix}${dualR3MeterRequirements(els.meterChip.value).note}`;
+  els.hardwarePresetNote.textContent = `${prefix}${hardwarePresetRequirements(preset, els.meterChip.value).note}`;
 }
 
 function setRecommendedMeterPins(chip) {
+  const preset = currentHardwarePreset();
+  if (!preset) {
+    return;
+  }
+  if (preset.profile === "pow_hlw_manual" && chip === "cse7759") {
+    if (!els.meterCfPin.value) {
+      els.meterCfPin.value = "14";
+    }
+    if (!els.meterCf1Pin.value) {
+      els.meterCf1Pin.value = "13";
+    }
+    if (!els.meterSelPin.value) {
+      els.meterSelPin.value = "5";
+    }
+    return;
+  }
+  if (preset.profile !== "dualr3") {
+    return;
+  }
   if (chip === "cse7761") {
     if (!els.meterTxPin.value) {
       els.meterTxPin.value = "25";
@@ -785,8 +1090,8 @@ function setRecommendedMeterPins(chip) {
   }
 }
 
-function applyDualR3PresetDefaults() {
-  const preset = currentDualR3Preset();
+function applyHardwarePresetDefaults() {
+  const preset = currentHardwarePreset();
   if (!preset) {
     return;
   }
@@ -810,33 +1115,72 @@ function buildDualR3Template() {
   const cfPin = parseOptionalPin(els.meterCfPin.value.trim());
 
   if (chip === "cse7761") {
-    setTemplatePin(template, txPin, TEMPLATE_CODES.cse7761Tx);
-    setTemplatePin(template, rxPin, TEMPLATE_CODES.cse7761Rx);
+    setTemplatePin(template, txPin, TEMPLATE_CODES.cse7761Tx, "esp32");
+    setTemplatePin(template, rxPin, TEMPLATE_CODES.cse7761Rx, "esp32");
   } else if (chip === "cse7766") {
-    setTemplatePin(template, rxPin, TEMPLATE_CODES.cse7766Rx);
+    setTemplatePin(template, rxPin, TEMPLATE_CODES.cse7766Rx, "esp32");
   } else if (chip === "bl0930") {
-    setTemplatePin(template, cfPin, TEMPLATE_CODES.cf);
+    setTemplatePin(template, cfPin, TEMPLATE_CODES.cf, "esp32");
   }
 
   return JSON.stringify(template, null, 2);
 }
 
+function buildPowR2HlwTemplate(preset) {
+  const template = {
+    NAME: preset?.templateName || POW_R2_HLW_TEMPLATE_NAME,
+    GPIO: [...POW_R2_BASE_GPIO],
+    FLAG: 0,
+  };
+  const chip = els.meterChip.value;
+  const cfPin = parseOptionalPin(els.meterCfPin.value.trim());
+  const cf1Pin = parseOptionalPin(els.meterCf1Pin.value.trim());
+  const selPin = parseOptionalPin(els.meterSelPin.value.trim());
+
+  if (chip === "cse7759") {
+    setTemplatePin(template, cfPin, TEMPLATE_CODES.cfOld, "esp82xx");
+    setTemplatePin(template, cf1Pin, TEMPLATE_CODES.cf1Old, "esp82xx");
+    setTemplatePin(template, selPin, TEMPLATE_CODES.selOld, "esp82xx");
+  }
+
+  return JSON.stringify(template, null, 2);
+}
+
+function buildCustomHardwareTemplate(preset) {
+  if (!preset?.customTemplate) {
+    return "";
+  }
+  if (preset.profile === "dualr3") {
+    return buildDualR3Template();
+  }
+  if (preset.profile === "pow_hlw_manual") {
+    return buildPowR2HlwTemplate(preset);
+  }
+  return "";
+}
+
 function validateHardwarePreset() {
-  if (!isDualR3PresetActive()) {
+  const preset = currentHardwarePreset();
+  if (!preset) {
     return { ok: true, message: "" };
   }
 
-  const requirements = dualR3MeterRequirements(els.meterChip.value);
+  const requirements = hardwarePresetRequirements(preset, els.meterChip.value);
+  if (!preset.customTemplate) {
+    return { ok: true, message: requirements.note };
+  }
   const pinValues = {
     rx: parseOptionalPin(els.meterRxPin.value.trim()),
     tx: parseOptionalPin(els.meterTxPin.value.trim()),
     cf: parseOptionalPin(els.meterCfPin.value.trim()),
+    cf1: parseOptionalPin(els.meterCf1Pin.value.trim()),
+    sel: parseOptionalPin(els.meterSelPin.value.trim()),
   };
 
   for (const key of requirements.requiredPins) {
     const pin = pinValues[key];
-    if (!Number.isInteger(pin) || templateIndexForEsp32Pin(pin) === null) {
-      return { ok: false, message: `Preset DUALR3 wymaga poprawnego GPIO dla pola ${key.toUpperCase()}.` };
+    if (!Number.isInteger(pin) || templateIndexForProcessor(preset.processor, pin) === null) {
+      return { ok: false, message: `Preset ${preset.label} wymaga poprawnego GPIO dla pola ${key.toUpperCase()}.` };
     }
   }
 
@@ -886,21 +1230,22 @@ function selectedTemplateCompatibilityIssue() {
 }
 
 function applyHardwarePresetSelection() {
-  if (!isDualR3PresetActive()) {
+  const preset = currentHardwarePreset();
+  if (!preset) {
     return;
   }
 
-  for (const optionId of DUAL_R3_REQUIRED_OPTIONS) {
+  for (const optionId of preset.requiredOptions || HARDWARE_REQUIRED_OPTIONS) {
     if (state.config.options[optionId]) {
       state.selected.add(optionId);
     }
   }
 
-  for (const optionId of DUAL_R3_METER_OPTIONS) {
+  for (const optionId of HARDWARE_METER_OPTIONS) {
     state.selected.delete(optionId);
   }
 
-  const meterOption = dualR3MeterRequirements(els.meterChip.value).optionId;
+  const meterOption = hardwarePresetRequirements(preset, els.meterChip.value).optionId;
   if (meterOption && state.config.options[meterOption]) {
     state.selected.add(meterOption);
   }
@@ -926,6 +1271,23 @@ function setDefaults() {
   normalizeSelection();
   renderAll();
   renderStatus(null);
+}
+
+function meterChipLabel(chip) {
+  switch (chip) {
+    case "cse7759":
+      return "CSE7759";
+    case "cse7761":
+      return "CSE7761";
+    case "cse7766":
+      return "CSE7766";
+    case "cse7759b":
+      return "CSE7759B-S";
+    case "bl0930":
+      return "BL0930";
+    default:
+      return "brak";
+  }
 }
 
 function buildOptionMeta(option) {
@@ -1022,8 +1384,8 @@ function renderOptions() {
 function renderSummary() {
   const selectedList = [...state.selected].sort();
   const templateName = usingCustomTemplateJson() ? "własny JSON" : (els.templateSelect.value || "brak");
-  const hardwarePreset = currentDualR3Preset()?.label || els.hardwarePreset.value || "brak";
-  const meterChip = isDualR3PresetActive() ? els.meterChip.value : "brak";
+  const hardwarePreset = currentHardwarePreset()?.label || els.hardwarePreset.value || "brak";
+  const meterChip = isHardwarePresetActive() ? meterChipLabel(els.meterChip.value) : "brak";
   const templateIssue = selectedTemplateCompatibilityIssue();
   const xiaoProtocol = isXiaoTemplateSelected()
     ? ` | protokół XIAO: <strong>${escapeHtml(xiaoProtocolLabel(xiaoProtocolForEnv(els.envSelect.value) || selectedXiaoProtocol()))}</strong>`
@@ -1357,8 +1719,9 @@ function selectedTemplateJson() {
   if (custom) {
     return custom;
   }
-  if (isDualR3PresetActive()) {
-    return buildDualR3Template();
+  const preset = currentHardwarePreset();
+  if (preset?.customTemplate) {
+    return buildCustomHardwareTemplate(preset);
   }
   const selectedName = els.templateSelect.value;
   if (!selectedName) {
@@ -1546,12 +1909,13 @@ async function bootstrap() {
     renderDeviceGroups();
   });
   els.hardwarePreset.addEventListener("change", () => {
-    applyDualR3PresetDefaults();
-    if (isDualR3PresetActive()) {
-      els.processorSelect.value = "esp32";
-      renderEnvSelect("GUI_Generic_ESP32");
-      renderTemplateSelect(DUAL_R3_PM_TEMPLATE_NAME);
-      els.templateSelect.value = DUAL_R3_PM_TEMPLATE_NAME;
+    applyHardwarePresetDefaults();
+    const preset = currentHardwarePreset();
+    if (preset) {
+      els.processorSelect.value = preset.processor;
+      renderEnvSelect(preset.env);
+      renderTemplateSelect(preset.templateName);
+      els.templateSelect.value = preset.templateName;
     }
     syncXiaoProtocolContext();
     normalizeSelection();
