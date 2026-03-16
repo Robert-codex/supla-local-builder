@@ -32,6 +32,8 @@ DATA_DIR = Path(__file__).resolve().parent / "data"
 BUILDS_DIR = DATA_DIR / "builds"
 WORK_DIR = DATA_DIR / "work"
 HIDDEN_OPTION_IDS = {"SUPLA_ZIGBEE_GATEWAY"}
+SOURCE_SIGNATURE_ENV = "LOCAL_BUILDER_SOURCE_SIGNATURE"
+FORCE_REBUILD_ENV = "LOCAL_BUILDER_FORCE_REBUILD"
 
 # Local aliases must expand to explicit GPIO maps that GUI-Generic understands.
 # Tasmota maps SONOFF_4CHPRO to TMP_SONOFF_4CH, so 4CHPROR3 can be exposed here
@@ -213,6 +215,16 @@ def normalize_public_url(value: str) -> str:
     return value.rstrip("/") + "/"
 
 
+def parse_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on", "tak"}
+    return False
+
+
 def parse_template_json_object(template_json: str) -> tuple[dict[str, Any] | None, str]:
     raw = template_json.strip()
     if not raw:
@@ -267,6 +279,58 @@ def unsupported_template_error(template_json: str) -> str:
         "dziedziczenia Tasmota przez BASE, więc build został zablokowany, "
         "żeby nie generować mylącego firmware."
     )
+
+
+def template_gpio_values(template_json: str) -> list[int]:
+    payload, _ = parse_template_json_object(template_json)
+    if payload is None:
+        return []
+
+    raw_gpio = payload.get("GPIO")
+    if not isinstance(raw_gpio, list):
+        return []
+
+    values: list[int] = []
+    for item in raw_gpio:
+        if isinstance(item, bool):
+            values.append(int(item))
+        elif isinstance(item, int):
+            values.append(item)
+        elif isinstance(item, float) and item.is_integer():
+            values.append(int(item))
+        elif isinstance(item, str):
+            stripped = item.strip()
+            if stripped.lstrip("-").isdigit():
+                values.append(int(stripped))
+    return values
+
+
+def incompatible_template_option_error(template_json: str, selected_options: list[str]) -> str:
+    if "SUPLA_CSE7759B_FG" not in selected_options:
+        return ""
+
+    template_name = template_name_from_json(template_json)
+    if template_name not in {
+        "Sonoff POWR316",
+        "Sonoff POW Origin 16A Power Monitoring Switch Module (POWR316)",
+    }:
+        return ""
+
+    gpio_values = template_gpio_values(template_json)
+    if 2688 in gpio_values or 2720 in gpio_values:
+        return ""
+
+    if 3104 in gpio_values:
+        return (
+            f"{template_name} ma w template pin pomiarowy zakodowany jako UART RX "
+            "(`NewCSE7766Rx=3104`), a nie `CF/FG`. Build z `SUPLA_CSE7759B_FG` "
+            "został zablokowany, bo dla tego presetu nie daje poprawnego pomiaru "
+            "bez osobnego template z pinem `CF`. Dla rewizji z pełnym odczytem "
+            "V/A/W użyj `SUPLA_CSE7759B` albo `SUPLA_CSE7766`, zgodnie z faktycznym "
+            "układem na PCB."
+        )
+
+    return ""
 
 
 def make_device_basename(custom_name: str, template_name: str, template_json: str, fallback: str) -> str:
@@ -380,6 +444,106 @@ def discover_platformio_executable() -> str | None:
     return None
 
 
+def _git_output(repo_dir: Path, *args: str) -> str:
+    data = _git_bytes(repo_dir, *args)
+    if not data:
+        return ""
+    return data.decode("utf-8", errors="replace").strip()
+
+
+def _git_bytes(repo_dir: Path, *args: str) -> bytes:
+    try:
+        completed = subprocess.run(
+            ["git", *args],
+            cwd=str(repo_dir),
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return b""
+    return completed.stdout
+
+
+def _git_worktree_digest(repo_dir: Path, *paths: str) -> str:
+    digest = hashlib.sha1()
+    dirty = False
+
+    diff_args = ["diff", "--no-ext-diff", "--binary", "HEAD"]
+    ls_args = ["ls-files", "--others", "--exclude-standard", "-z"]
+    if paths:
+        diff_args.extend(["--", *paths])
+        ls_args.extend(["--", *paths])
+
+    tracked = _git_bytes(repo_dir, *diff_args)
+    if tracked:
+        digest.update(b"tracked\0")
+        digest.update(tracked)
+        dirty = True
+
+    untracked = _git_bytes(repo_dir, *ls_args)
+    for raw_path in [entry for entry in untracked.split(b"\0") if entry]:
+        dirty = True
+        digest.update(b"untracked\0")
+        digest.update(raw_path)
+        digest.update(b"\0")
+        try:
+            digest.update((repo_dir / os.fsdecode(raw_path)).read_bytes())
+        except OSError:
+            digest.update(b"<missing>")
+        digest.update(b"\0")
+
+    if not dirty:
+        return ""
+    return digest.hexdigest()
+
+
+def resolve_source_signature() -> str:
+    override = os.environ.get(SOURCE_SIGNATURE_ENV, "").strip()
+    if override:
+        return override
+
+    root_head = _git_output(ROOT_DIR, "rev-parse", "HEAD")
+    gui_head = _git_output(GUI_GENERIC_DIR, "rev-parse", "HEAD")
+    root_worktree = _git_worktree_digest(
+        ROOT_DIR,
+        "local_builder",
+        "patches",
+        "scripts/platformio_local.sh",
+    )
+    gui_worktree = _git_worktree_digest(GUI_GENERIC_DIR)
+
+    signature_parts = [
+        f"root={root_head or 'none'}",
+        f"gui={gui_head or 'none'}",
+        f"root_dirty={int(bool(root_worktree))}",
+        f"gui_dirty={int(bool(gui_worktree))}",
+    ]
+    if root_worktree:
+        signature_parts.append(f"root_worktree={root_worktree}")
+    if gui_worktree:
+        signature_parts.append(f"gui_worktree={gui_worktree}")
+
+    if root_head or gui_head:
+        return "|".join(signature_parts)
+
+    fallback = [
+        GUI_GENERIC_DIR / "platformio.ini",
+        GUI_GENERIC_DIR / "builder.json",
+        ROOT_DIR / "local_builder" / "server.py",
+    ]
+    mtimes: list[str] = []
+    for path in fallback:
+        try:
+            mtimes.append(f"{path.name}:{path.stat().st_mtime_ns}")
+        except OSError:
+            continue
+    if mtimes:
+        return "mtime|" + "|".join(mtimes)
+    return "source=unknown"
+
+
 def parse_env_names(platformio_ini: Path) -> list[str]:
     envs: list[str] = []
     pattern = re.compile(r"^\[env:(.+)\]\s*$")
@@ -486,6 +650,8 @@ class BuildRequest:
     template_json: str = ""
     public_builder_url: str = ""
     custom_name: str = ""
+    force_rebuild: bool = False
+    source_signature: str = ""
     hash: str = ""
 
     @classmethod
@@ -497,6 +663,8 @@ class BuildRequest:
         public_builder_url = normalize_public_url(payload.get("public_builder_url", ""))
         build_version = payload.get("build_version", "").strip() or datetime.now().strftime("%y.%m.%d")
         custom_name = payload.get("custom_name", "").strip()
+        force_rebuild = parse_bool(payload.get("force_rebuild", False))
+        source_signature = resolve_source_signature()
         request = cls(
             env=payload.get("env", "").strip(),
             language=payload.get("language", "pl").strip() or "pl",
@@ -506,6 +674,8 @@ class BuildRequest:
             template_json=template_json.strip(),
             public_builder_url=public_builder_url,
             custom_name=custom_name,
+            force_rebuild=force_rebuild,
+            source_signature=source_signature,
         )
         request.hash = request.compute_hash()
         return request
@@ -520,6 +690,7 @@ class BuildRequest:
             "template_json": self.template_json,
             "public_builder_url": self.public_builder_url,
             "custom_name": self.custom_name,
+            "source_signature": self.source_signature,
         }
 
     def compute_hash(self) -> str:
@@ -667,10 +838,34 @@ class BuildManager:
     def __init__(self, catalog: BuilderCatalog) -> None:
         self.catalog = catalog
         self.platformio_cmd = discover_platformio_executable()
+        self.force_rebuild_default = parse_bool(os.environ.get(FORCE_REBUILD_ENV, ""))
         self.lock = threading.Lock()
+        self.cleanup_lock = threading.Lock()
         self.jobs: dict[str, BuildMetadata] = {}
+        self.metadata_dirs: dict[str, Path] = {}
         self.active_jobs: set[str] = set()
+        self.stale_retention_days = self._read_non_negative_env("LOCAL_BUILDER_STALE_RETENTION_DAYS", 14)
+        self.stale_retention_keep = self._read_non_negative_env("LOCAL_BUILDER_STALE_RETENTION_KEEP", 3)
         self._load_metadata()
+        self.cleanup_stale_dirs()
+
+    @staticmethod
+    def _read_non_negative_env(name: str, default: int) -> int:
+        raw = os.environ.get(name, "").strip()
+        if not raw:
+            return default
+        try:
+            parsed = int(raw)
+        except ValueError:
+            return default
+        return max(0, parsed)
+
+    @staticmethod
+    def _safe_mtime(path: Path) -> float:
+        try:
+            return path.stat().st_mtime
+        except OSError:
+            return 0.0
 
     def _metadata_path(self, build_hash: str) -> Path:
         return BUILDS_DIR / build_hash / "metadata.json"
@@ -684,8 +879,33 @@ class BuildManager:
     def _work_project_dir(self, build_hash: str) -> Path:
         return WORK_DIR / build_hash / "project"
 
+    def _candidate_build_dirs(self, build_hash: str) -> list[Path]:
+        # Some deployments rotate build folders to `<hash>.stale.<ts>`.
+        # Keep compatibility by checking both canonical and stale locations.
+        candidates: list[Path] = []
+        preferred = self.metadata_dirs.get(build_hash)
+        if preferred is not None:
+            candidates.append(preferred)
+
+        canonical = BUILDS_DIR / build_hash
+        candidates.append(canonical)
+
+        stale_matches = sorted(BUILDS_DIR.glob(f"{build_hash}.stale.*"), key=self._safe_mtime, reverse=True)
+        candidates.extend(stale_matches)
+
+        deduped: list[Path] = []
+        seen: set[str] = set()
+        for path in candidates:
+            key = str(path.resolve()) if path.exists() else str(path)
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(path)
+        return deduped
+
     def _load_metadata(self) -> None:
-        for metadata_path in BUILDS_DIR.glob("*/metadata.json"):
+        metadata_paths = sorted(BUILDS_DIR.glob("*/metadata.json"), key=self._safe_mtime, reverse=True)
+        for metadata_path in metadata_paths:
             payload = load_json(metadata_path)
             metadata = BuildMetadata(
                 hash=payload["hash"],
@@ -701,12 +921,100 @@ class BuildManager:
                 error=payload.get("error", ""),
                 platformio_cmd=payload.get("platformio_cmd", ""),
             )
+            existing = self.jobs.get(metadata.hash)
+            if existing is not None and existing.updated_at >= metadata.updated_at:
+                continue
+            self.metadata_dirs[metadata.hash] = metadata_path.parent
+            if metadata.log_path and not Path(metadata.log_path).exists():
+                fallback_log = metadata_path.parent / "build.log"
+                if fallback_log.exists():
+                    metadata.log_path = str(fallback_log)
             if metadata.status in {"queued", "building"}:
                 metadata.status = "failed"
                 if not metadata.error:
                     metadata.error = "Build został przerwany albo serwer został zrestartowany przed zakończeniem kompilacji."
                 self._persist_best_effort(metadata)
             self.jobs[metadata.hash] = metadata
+
+    def _remove_stale_directories(self, base_dir: Path, now_ts: float) -> tuple[list[Path], int]:
+        if not base_dir.exists():
+            return [], 0
+
+        grouped: dict[str, list[Path]] = {}
+        for entry in base_dir.iterdir():
+            if not entry.is_dir():
+                continue
+            if ".stale." not in entry.name:
+                continue
+            prefix = entry.name.split(".stale.", 1)[0].strip()
+            if not prefix:
+                continue
+            grouped.setdefault(prefix, []).append(entry)
+
+        cutoff = now_ts - (self.stale_retention_days * 24 * 60 * 60) if self.stale_retention_days > 0 else None
+        removed: list[Path] = []
+        failed = 0
+
+        for entries in grouped.values():
+            ordered = sorted(entries, key=self._safe_mtime, reverse=True)
+            for index, path in enumerate(ordered):
+                too_many = index >= self.stale_retention_keep
+                too_old = cutoff is not None and self._safe_mtime(path) < cutoff
+                if not too_many and not too_old:
+                    continue
+                try:
+                    shutil.rmtree(path)
+                    removed.append(path)
+                except OSError:
+                    failed += 1
+
+        return removed, failed
+
+    def _refresh_metadata_dirs_after_cleanup(self, removed_build_dirs: list[Path]) -> int:
+        if not removed_build_dirs:
+            return 0
+
+        removed_keys = {str(path.resolve()) if path.exists() else str(path) for path in removed_build_dirs}
+        dropped = 0
+
+        with self.lock:
+            for build_hash, meta_dir in list(self.metadata_dirs.items()):
+                key = str(meta_dir.resolve()) if meta_dir.exists() else str(meta_dir)
+                if key not in removed_keys:
+                    continue
+
+                canonical_meta = BUILDS_DIR / build_hash / "metadata.json"
+                if canonical_meta.exists():
+                    self.metadata_dirs[build_hash] = canonical_meta.parent
+                    continue
+
+                candidates = sorted(BUILDS_DIR.glob(f"{build_hash}.stale.*/metadata.json"), key=self._safe_mtime, reverse=True)
+                if candidates:
+                    self.metadata_dirs[build_hash] = candidates[0].parent
+                    continue
+
+                self.metadata_dirs.pop(build_hash, None)
+                self.jobs.pop(build_hash, None)
+                self.active_jobs.discard(build_hash)
+                dropped += 1
+
+        return dropped
+
+    def cleanup_stale_dirs(self) -> None:
+        with self.cleanup_lock:
+            now_ts = time.time()
+            removed_build_dirs, failed_build = self._remove_stale_directories(BUILDS_DIR, now_ts)
+            removed_work_dirs, failed_work = self._remove_stale_directories(WORK_DIR, now_ts)
+            dropped_jobs = self._refresh_metadata_dirs_after_cleanup(removed_build_dirs)
+            removed_total = len(removed_build_dirs) + len(removed_work_dirs)
+            failed_total = failed_build + failed_work
+            if removed_total or dropped_jobs:
+                print(
+                    "stale retention: "
+                    f"removed={removed_total} (builds={len(removed_build_dirs)}, work={len(removed_work_dirs)}), "
+                    f"failed={failed_total}, dropped_jobs={dropped_jobs}, "
+                    f"keep={self.stale_retention_keep}, days={self.stale_retention_days}"
+                )
 
     def _persist(self, metadata: BuildMetadata) -> None:
         metadata.updated_at = time.time()
@@ -778,17 +1086,23 @@ class BuildManager:
                 updated[kind] = source.name
         return updated
 
-    def submit(self, request: BuildRequest) -> BuildMetadata:
+    def submit(self, request: BuildRequest, force_rebuild: bool | None = None) -> BuildMetadata:
+        should_force_rebuild = (
+            request.force_rebuild if force_rebuild is None else bool(force_rebuild)
+        ) or self.force_rebuild_default
+
         with self.lock:
             existing = self.jobs.get(request.hash)
-            if existing and existing.status in {"queued", "building", "ready"}:
+            if existing and existing.status in {"queued", "building"}:
+                return existing
+            if existing and existing.status == "ready" and not should_force_rebuild:
                 return existing
 
             now = time.time()
             metadata = BuildMetadata(
                 hash=request.hash,
                 status="queued",
-                created_at=existing.created_at if existing else now,
+                created_at=existing.created_at if existing and not should_force_rebuild else now,
                 updated_at=now,
                 request=request.canonical_payload(),
                 log_path=str(self._log_path(request.hash)),
@@ -797,10 +1111,12 @@ class BuildManager:
             )
             self.jobs[request.hash] = metadata
             build_dir = BUILDS_DIR / request.hash
+            self.metadata_dirs[request.hash] = build_dir
             build_dir.mkdir(parents=True, exist_ok=True)
             self._artifacts_dir(request.hash).mkdir(parents=True, exist_ok=True)
             self._persist(metadata)
 
+        self.cleanup_stale_dirs()
         thread = threading.Thread(target=self._run_build, args=(request,), daemon=True)
         thread.start()
         return metadata
@@ -835,9 +1151,10 @@ class BuildManager:
 
         filename = metadata.artifact_files.get(lookup_type)
         if filename:
-            path = self._artifacts_dir(build_hash) / filename
-            if path.exists():
-                return path
+            for build_dir in self._candidate_build_dirs(build_hash):
+                path = build_dir / "artifacts" / filename
+                if path.exists():
+                    return path
 
         request = BuildRequest.from_payload(metadata.request)
         request.hash = build_hash
@@ -846,6 +1163,29 @@ class BuildManager:
             return None
         artifacts = self._collect_artifacts(request, work_project)
         return artifacts.get(requested_type) or artifacts.get(lookup_type)
+
+    def resolve_artifact_file(self, build_hash: str, filename: str) -> Path | None:
+        for build_dir in self._candidate_build_dirs(build_hash):
+            artifact = build_dir / "artifacts" / filename
+            if artifact.exists():
+                return artifact
+        return None
+
+    def resolve_log_path(self, build_hash: str, metadata: BuildMetadata | None = None) -> Path | None:
+        checked: set[str] = set()
+        candidates: list[Path] = []
+        if metadata is not None and metadata.log_path:
+            candidates.append(Path(metadata.log_path))
+        for build_dir in self._candidate_build_dirs(build_hash):
+            candidates.append(build_dir / "build.log")
+        for path in candidates:
+            key = str(path)
+            if key in checked:
+                continue
+            checked.add(key)
+            if path.exists():
+                return path
+        return None
 
     def _run_build(self, request: BuildRequest) -> None:
         with self.lock:
@@ -1137,8 +1477,9 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
             payload = metadata.to_dict()
             payload["artifact_urls"] = self.app.artifact_urls(build_hash, metadata.artifact_files)
             payload["compatibility_url"] = self.app.compatibility_url(build_hash)
-            if metadata.log_path and Path(metadata.log_path).exists():
-                payload["log_tail"] = self.app.log_tail(Path(metadata.log_path))
+            log_path = self.app.manager.resolve_log_path(build_hash, metadata)
+            if log_path is not None:
+                payload["log_tail"] = self.app.log_tail(log_path)
             json_response(self, HTTPStatus.OK, payload)
             return
 
@@ -1187,8 +1528,12 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
         if template_error:
             json_response(self, HTTPStatus.BAD_REQUEST, {"error": template_error})
             return
+        compatibility_error = incompatible_template_option_error(request.template_json, request.selected_options)
+        if compatibility_error:
+            json_response(self, HTTPStatus.BAD_REQUEST, {"error": compatibility_error})
+            return
 
-        metadata = self.app.manager.submit(request)
+        metadata = self.app.manager.submit(request, force_rebuild=request.force_rebuild)
         response = metadata.to_dict()
         response["artifact_urls"] = self.app.artifact_urls(request.hash, metadata.artifact_files)
         response["compatibility_url"] = self.app.compatibility_url(request.hash)
@@ -1218,8 +1563,8 @@ class BuilderHTTPHandler(BaseHTTPRequestHandler):
             json_response(self, HTTPStatus.NOT_FOUND, {"error": "Nieznany artefakt"})
             return
         _, build_hash, filename = parts
-        artifact = BUILDS_DIR / build_hash / "artifacts" / filename
-        if not artifact.exists():
+        artifact = self.app.manager.resolve_artifact_file(build_hash, filename)
+        if artifact is None:
             json_response(self, HTTPStatus.NOT_FOUND, {"error": "Brak pliku"})
             return
         self.serve_file(artifact)

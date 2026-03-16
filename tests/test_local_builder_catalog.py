@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from local_builder.server import BuilderCatalog
+from local_builder.server import BuilderCatalog, incompatible_template_option_error
 
 
 class BuilderCatalogTest(unittest.TestCase):
@@ -128,6 +128,49 @@ class BuilderCatalogTest(unittest.TestCase):
         names = [template["NAME"] for template in catalog.template_boards]
 
         self.assertEqual(names.count("Sonoff Pow R2 Power Monitoring"), 1)
+
+    def test_powr316_fg_is_blocked_when_template_exposes_only_uart_meter_pin(self) -> None:
+        template_json = json.dumps(
+            {
+                "NAME": "Sonoff POW Origin 16A Power Monitoring Switch Module (POWR316)",
+                "GPIO": [32, 0, 0, 0, 0, 576, 0, 0, 0, 224, 0, 0, 3104, 0, 320, 0],
+                "FLAG": 0,
+            },
+            ensure_ascii=False,
+        )
+
+        error = incompatible_template_option_error(template_json, ["SUPLA_CSE7759B_FG"])
+
+        self.assertIn("SUPLA_CSE7759B_FG", error)
+        self.assertIn("NewCSE7766Rx=3104", error)
+
+    def test_powr316_uart_variant_is_not_blocked(self) -> None:
+        template_json = json.dumps(
+            {
+                "NAME": "Sonoff POW Origin 16A Power Monitoring Switch Module (POWR316)",
+                "GPIO": [32, 0, 0, 0, 0, 576, 0, 0, 0, 224, 0, 0, 3104, 0, 320, 0],
+                "FLAG": 0,
+            },
+            ensure_ascii=False,
+        )
+
+        error = incompatible_template_option_error(template_json, ["SUPLA_CSE7759B"])
+
+        self.assertEqual(error, "")
+
+    def test_powr316_fg_is_allowed_with_custom_template_cf_pin(self) -> None:
+        template_json = json.dumps(
+            {
+                "NAME": "Sonoff POW Origin 16A Power Monitoring Switch Module (POWR316)",
+                "GPIO": [32, 0, 0, 0, 0, 576, 0, 0, 0, 224, 0, 0, 2688, 0, 320, 0],
+                "FLAG": 0,
+            },
+            ensure_ascii=False,
+        )
+
+        error = incompatible_template_option_error(template_json, ["SUPLA_CSE7759B_FG"])
+
+        self.assertEqual(error, "")
 
 
 if __name__ == "__main__":

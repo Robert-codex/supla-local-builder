@@ -197,9 +197,22 @@ Environment=LOCAL_BUILDER_PUBLIC_URL=https://192.168.1.100:8181/
 Environment=LOCAL_BUILDER_TLS_CERT=/home/USER/supla-local-builder/local_builder/data/certs/local-builder.crt
 Environment=LOCAL_BUILDER_TLS_KEY=/home/USER/supla-local-builder/local_builder/data/certs/local-builder.key
 Environment=LOCAL_BUILDER_HTTP_REDIRECT_PORT=80
+Environment=LOCAL_BUILDER_STALE_RETENTION_DAYS=14
+Environment=LOCAL_BUILDER_STALE_RETENTION_KEEP=3
+Environment=LOCAL_BUILDER_FORCE_REBUILD=0
 ```
 
 Przekierowanie HTTP działa z osobnego portu, zwykle `80`, na adres HTTPS buildera. `http://IP:8181/` nie przekieruje się do `https://IP:8181/`, bo port `8181` jest już serwerem TLS.
+
+Retencja `*.stale.*`:
+
+- `LOCAL_BUILDER_STALE_RETENTION_DAYS`: usuwa stale starsze niż podana liczba dni (`0` wyłącza limit wieku).
+- `LOCAL_BUILDER_STALE_RETENTION_KEEP`: ile najnowszych katalogów `*.stale.*` zachować per hash (`0` = nie trzymaj żadnych).
+
+Wymuszenie przebudowy:
+
+- `LOCAL_BUILDER_FORCE_REBUILD=1`: każdy `POST /api/build` przebudowuje także identyczny hash (bez zwracania `ready` z cache).
+- Alternatywnie jednorazowo: dodaj `"force_rebuild": true` w payloadzie `POST /api/build`.
 
 Przed uruchomieniem usługi wygeneruj certyfikat:
 
