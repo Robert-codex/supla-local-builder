@@ -18,6 +18,12 @@ Ten projekt rozdziela `CSE7759B` i `CSE7766` jako dwa odrebne uklady oraz dwa od
 | Kalibracja | osobne mnozniki/parametry | osobne mnozniki/parametry | Przesuniete wyniki V/A/W/Wh |
 | Preset buildera | `Sonoff POWR316` + reczny wybor metera | `Sonoff POWR316` + reczny wybor metera | Budowanie z niepoprawnym ukladem |
 
+## Schemat polaczen
+
+![Podlaczenie CSE7766 i CSE7759B](assets/CSE7766_CSE7759B.png)
+
+Uwaga: traktuj ten rysunek jako pogladowy. Dla konkretnego urzadzenia zawsze potwierdz pinout i logike pomiarowa z dokumentacja danej rewizji PCB.
+
 ## Checklista po flashu
 
 1. Potwierdz wybrany uklad (`CSE7766` albo `CSE7759B`) przed kompilacja firmware.
