@@ -114,27 +114,54 @@ LOCAL_OPTION_ALIASES: dict[str, dict[str, Any]] = {
         "base_option": "SUPLA_CSE7766",
         "meta": {
             "name": "Licznik energii CSE7759B-S",
-            "desc": "Alias buildowy dla wariantu UART CSE7759B-S. Na poziomie firmware używa obecnie tej samej ścieżki co CSE7766.",
+            "desc": "Dedykowany, odrębny driver UART dla CSE7759B-S (bez wspólnej ścieżki z CSE7766).",
             "defOn": False,
-            "opts": "-D SUPLA_CSE7766",
+            "opts": "",
+            "depRel": ["SUPLA_CSE7766", "SUPLA_CSE7759B_FG"],
             "en": {
                 "name": "Energy meter CSE7759B-S",
-                "desc": "Build-time alias for the UART CSE7759B-S variant. Firmware currently uses the same code path as CSE7766.",
+                "desc": "Dedicated standalone UART driver for CSE7759B-S (separate from CSE7766 path).",
             },
             "es": {
                 "name": "Contador de energía CSE7759B-S",
-                "desc": "Alias de compilación para la variante UART CSE7759B-S. El firmware usa actualmente la misma ruta que CSE7766.",
+                "desc": "Controlador UART dedicado e independiente para CSE7759B-S (separado de la ruta CSE7766).",
             },
             "de": {
                 "name": "Energiezähler CSE7759B-S",
-                "desc": "Build-Alias für die UART-Variante CSE7759B-S. Die Firmware verwendet derzeit denselben Pfad wie CSE7766.",
+                "desc": "Dedizierter, eigenständiger UART-Treiber für CSE7759B-S (getrennt vom CSE7766-Pfad).",
             },
             "fr": {
                 "name": "Compteur d´énergie CSE7759B-S",
-                "desc": "Alias de compilation pour la variante UART CSE7759B-S. Le firmware utilise actuellement le même chemin que CSE7766.",
+                "desc": "Pilote UART dédié et indépendant pour CSE7759B-S (séparé du chemin CSE7766).",
             },
         },
-    }
+    },
+    "SUPLA_CSE7759B_FG": {
+        "base_option": "SUPLA_BL0930",
+        "meta": {
+            "name": "Licznik energii CSE7759B (FG) (impulsowy)",
+            "desc": "Dedykowany, odrębny driver impulsowy dla CSE7759B z wyjściem FG/CF.",
+            "defOn": False,
+            "opts": "",
+            "depRel": ["SUPLA_CSE7759B", "SUPLA_CSE7766", "SUPLA_HLW8012", "SUPLA_CSE7759", "SUPLA_BL0930"],
+            "en": {
+                "name": "Energy meter CSE7759B (FG) (pulse)",
+                "desc": "Dedicated standalone pulse driver for CSE7759B using FG/CF output.",
+            },
+            "es": {
+                "name": "Contador de energía CSE7759B (FG) (impulsos)",
+                "desc": "Controlador por impulsos dedicado e independiente para CSE7759B con salida FG/CF.",
+            },
+            "de": {
+                "name": "Energiezähler CSE7759B (FG) (impulsbasiert)",
+                "desc": "Dedizierter, eigenständiger Impulstreiber für CSE7759B mit FG/CF-Ausgang.",
+            },
+            "fr": {
+                "name": "Compteur d´énergie CSE7759B (FG) (impulsionnel)",
+                "desc": "Pilote impulsionnel dédié et indépendant pour CSE7759B avec sortie FG/CF.",
+            },
+        },
+    },
 }
 
 

@@ -44,7 +44,7 @@ const TEMPLATE_CODES = {
   selOld: 131,
 };
 const HARDWARE_REQUIRED_OPTIONS = ["SUPLA_RELAY", "SUPLA_BUTTON"];
-const HARDWARE_METER_OPTIONS = ["SUPLA_HLW8012", "SUPLA_CSE7759", "SUPLA_CSE7761", "SUPLA_CSE7766", "SUPLA_CSE7759B", "SUPLA_BL0930", "SUPLA_BL0939"];
+const HARDWARE_METER_OPTIONS = ["SUPLA_HLW8012", "SUPLA_CSE7759", "SUPLA_CSE7761", "SUPLA_CSE7766", "SUPLA_CSE7759B", "SUPLA_CSE7759B_FG", "SUPLA_BL0930", "SUPLA_BL0939"];
 const HARDWARE_PRESETS = {
   sonoff_dual_r3_pm: {
     profile: "dualr3",
@@ -152,24 +152,6 @@ const HARDWARE_PRESETS = {
     pins: {},
     label: "Sonoff POWR316",
   },
-  sonoff_powr316_cse7766: {
-    profile: "pow_uart",
-    templateName: POWR316_TEMPLATE_NAME,
-    processor: "esp32",
-    env: "GUI_Generic_ESP32",
-    chip: "cse7766",
-    pins: {},
-    label: "Sonoff POWR316 + CSE7766",
-  },
-  sonoff_powr316_cse7759b: {
-    profile: "pow_uart",
-    templateName: POWR316_TEMPLATE_NAME,
-    processor: "esp32",
-    env: "GUI_Generic_ESP32",
-    chip: "cse7759b",
-    pins: {},
-    label: "Sonoff POWR316 + CSE7759B-S",
-  },
 };
 const FEATURED_DEVICE_PRESETS = [
   {
@@ -235,7 +217,7 @@ const FEATURED_DEVICE_PRESETS = [
   {
     id: "powr2-cse7759b",
     name: "Sonoff Pow R2 + CSE7759B-S",
-    description: "Preset Pow R2 dla wariantu UART CSE7759B-S obsługiwanego ścieżką zgodną z CSE7766.",
+    description: "Preset Pow R2 dla wariantu UART CSE7759B-S z dedykowanym driverem.",
     templateName: POW_R2_TEMPLATE_NAME,
     processor: "esp82xx",
     env: "GUI_Generic_2MB",
@@ -275,32 +257,12 @@ const FEATURED_DEVICE_PRESETS = [
   {
     id: "powr316-meter",
     name: "Sonoff POWR316",
-    description: "Preset POWR316 z wyborem UART-owego układu pomiarowego w czasie buildu.",
+    description: "Czysty preset POWR316 z ręcznym wyborem układu pomiarowego (UART albo FG) podczas buildu.",
     templateName: POWR316_TEMPLATE_NAME,
     processor: "esp32",
     env: "GUI_Generic_ESP32",
     hardwarePreset: "sonoff_powr316_meter",
     chips: ["ESP32", "POWR316", "Power Monitoring"],
-  },
-  {
-    id: "powr316-cse7766",
-    name: "Sonoff POWR316 + CSE7766",
-    description: "Gotowy preset POWR316 dla wariantu z CSE7766.",
-    templateName: POWR316_TEMPLATE_NAME,
-    processor: "esp32",
-    env: "GUI_Generic_ESP32",
-    hardwarePreset: "sonoff_powr316_cse7766",
-    chips: ["ESP32", "CSE7766"],
-  },
-  {
-    id: "powr316-cse7759b",
-    name: "Sonoff POWR316 + CSE7759B-S",
-    description: "Preset POWR316 dla wariantu UART CSE7759B-S obsługiwanego ścieżką zgodną z CSE7766.",
-    templateName: POWR316_TEMPLATE_NAME,
-    processor: "esp32",
-    env: "GUI_Generic_ESP32",
-    hardwarePreset: "sonoff_powr316_cse7759b",
-    chips: ["ESP32", "CSE7759B-S"],
   },
   {
     id: "dualr3-v2-bl0939-layout",
@@ -965,7 +927,13 @@ function hardwarePresetRequirements(preset, chip) {
         return {
           requiredPins: [],
           optionId: "SUPLA_CSE7759B",
-          note: "CSE7759B-S dostaje osobną flagę buildu `SUPLA_CSE7759B`, ale firmware mapuje ją obecnie na istniejącą ścieżkę UART CSE7766. Podstawą jest zgodność 24-bajtowej ramki 4800 bps z datasheetu CSE7759B-S.",
+          note: "CSE7759B-S używa osobnej flagi buildu `SUPLA_CSE7759B` i dedykowanego drivera UART.",
+        };
+      case "cse7759b_fg":
+        return {
+          requiredPins: [],
+          optionId: "SUPLA_CSE7759B_FG",
+          note: "CSE7759B (FG) używa dedykowanego drivera impulsowego `SUPLA_CSE7759B_FG`. Pin FG/CF ustawiasz po flashu w `Ustawienia urządzenia -> Inne`.",
         };
       case "none":
         return {
@@ -977,7 +945,7 @@ function hardwarePresetRequirements(preset, chip) {
         return {
           requiredPins: [],
           optionId: "",
-          note: "Dla tego presetu builder obsługuje tylko warianty UART CSE7766 i CSE7759B-S. Impulsowy CSE7759 wymaga osobnego mapowania CF/CF1/SEL.",
+          note: "Dla tego presetu builder obsługuje warianty UART (`CSE7766`, `CSE7759B-S`) oraz impulsowy `CSE7759B (FG)`. Impulsowy `CSE7759` wymaga osobnego mapowania CF/CF1/SEL.",
         };
     }
   }
@@ -1062,6 +1030,12 @@ function hardwarePresetRequirements(preset, chip) {
         requiredPins: ["cf"],
         optionId: "SUPLA_BL0930",
         note: "BL0930 w `DUALR3 Power Monitoring` jest obsługiwany jako driver impulsowy `CF`. Pin ustawiasz ręcznie.",
+      };
+    case "cse7759b_fg":
+      return {
+        requiredPins: ["cf"],
+        optionId: "SUPLA_CSE7759B_FG",
+        note: "CSE7759B (FG) używa dedykowanego drivera impulsowego. W tym presecie podajesz pin `CF/FG` ręcznie.",
       };
     default:
       return {
@@ -1156,7 +1130,7 @@ function buildDualR3Template() {
     setTemplatePin(template, rxPin, TEMPLATE_CODES.cse7761Rx, "esp32");
   } else if (chip === "cse7766") {
     setTemplatePin(template, rxPin, TEMPLATE_CODES.cse7766Rx, "esp32");
-  } else if (chip === "bl0930") {
+  } else if (chip === "bl0930" || chip === "cse7759b_fg") {
     setTemplatePin(template, cfPin, TEMPLATE_CODES.cf, "esp32");
   }
 
@@ -1320,6 +1294,8 @@ function meterChipLabel(chip) {
       return "CSE7766";
     case "cse7759b":
       return "CSE7759B-S";
+    case "cse7759b_fg":
+      return "CSE7759B (FG) (impulsowy)";
     case "bl0930":
       return "BL0930";
     default:

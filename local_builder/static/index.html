@@ -114,8 +114,6 @@
                   <option value="sonoff_pow_r2_cse7759_verified_1739die">Sonoff Pow R2 + CSE7759 (verified PCB 1739DIE)</option>
                   <option value="sonoff_pow_cse7759">Sonoff POW / POWR1 + CSE7759</option>
                   <option value="sonoff_powr316_meter">Sonoff POWR316</option>
-                  <option value="sonoff_powr316_cse7766">Sonoff POWR316 + CSE7766</option>
-                  <option value="sonoff_powr316_cse7759b">Sonoff POWR316 + CSE7759B-S</option>
                 </select>
               </label>
               <label>
@@ -126,6 +124,7 @@
                   <option value="cse7761">CSE7761</option>
                   <option value="cse7766">CSE7766</option>
                   <option value="cse7759b">CSE7759B-S</option>
+                  <option value="cse7759b_fg">CSE7759B (FG) (impulsowy)</option>
                   <option value="bl0930">BL0930</option>
                 </select>
               </label>
@@ -151,7 +150,7 @@
               </label>
             </div>
             <div id="hardwarePresetNote" class="preset-note">
-              Presety sprzętowe ustawiają bazowy template płytki. `CSE7759B-S` dostaje osobną flagę buildu, ale nadal używa zgodnej ścieżki UART `CSE7766`. Impulsowy `CSE7759` jest wystawiony jako stabilny preset dla `Sonoff POW / POWR1`, ogólny preset manualny dla `Pow R2` oraz osobny preset zweryfikowany dla PCB `CSE7759 1739DIE` z mapą `SEL=GPIO5`, `CF1=GPIO13`, `CF=GPIO14`. W tym wariancie `CF1` współdzieli `GPIO13` z obwodem stockowego LED. Kalibracja napięcia jest dostępna po flashu w GUI urządzenia.
+              Presety sprzętowe ustawiają bazowy template płytki. `CSE7759B-S` ma osobną flagę buildu i dedykowany driver UART, a `CSE7759B (FG)` osobną flagę i dedykowany driver impulsowy. Dla `POWR316` zostaje jeden czysty preset i ręczny wybór układu pomiarowego przy generowaniu firmware. Impulsowy `CSE7759` jest wystawiony jako stabilny preset dla `Sonoff POW / POWR1`, ogólny preset manualny dla `Pow R2` oraz osobny preset zweryfikowany dla PCB `CSE7759 1739DIE` z mapą `SEL=GPIO5`, `CF1=GPIO13`, `CF=GPIO14`. W tym wariancie `CF1` współdzieli `GPIO13` z obwodem stockowego LED. Kalibracja napięcia jest dostępna po flashu w GUI urządzenia.
             </div>
           </section>
           <label class="wide">

@@ -197,7 +197,9 @@ Dostępne warianty w sekcji presetów sprzętowych:
 Zasady działania:
 
 - `CSE7759B-S` jest wystawiony jako osobna opcja buildowa `SUPLA_CSE7759B` i używa dedykowanego drivera UART.
-- `Sonoff POWR316` pozostaje jako czysty preset sprzętowy; układ pomiarowy (`CSE7766` albo `CSE7759B-S`) wybierasz ręcznie podczas generowania firmware.
+- `CSE7759B (FG)` jest wystawiony jako osobna opcja buildowa `SUPLA_CSE7759B_FG` i używa dedykowanego drivera impulsowego (CF/FG).
+- `Sonoff POWR316` pozostaje jako czysty preset sprzętowy; układ pomiarowy (`CSE7766`, `CSE7759B-S` albo `CSE7759B (FG)`) wybierasz ręcznie podczas generowania firmware.
+- Dla wariantu `CSE7759B (FG)` pin impulsowy konfigurujesz po flashu w `Ustawienia urządzenia -> Inne` (pole `CF`).
 - `CSE7759` jest wystawiony jako alias `SUPLA_CSE7759`, który mapuje się na istniejący driver `HLW8012` z pinami `CF/CF1/SEL`; kompilacja dostaje `SUPLA_CSE7759` (wybrana opcja) oraz `SUPLA_HLW8012` (alias do istniejącego drivera), więc UI pokazuje nazwę `CSE7759`.
 - `Sonoff POW / POWR1 + CSE7759` jest traktowany jako stabilny preset dla starego wariantu impulsowego z mapą `SEL=GPIO5`, `CF1=GPIO13`, `CF=GPIO14`.
 - `Sonoff Pow R2 /SEL + CSE7759 (manual)` generuje własny template z ręcznie wpisanymi pinami `CF/CF1/SEL` i zostaje jako wariant ogólny dla innych rewizji PCB.

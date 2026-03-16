@@ -34,6 +34,11 @@ class BuilderCatalogTest(unittest.TestCase):
                     "defOn": False,
                     "opts": "-D SUPLA_CSE7766",
                 },
+                "SUPLA_BL0930": {
+                    "name": "BL0930",
+                    "defOn": False,
+                    "opts": "-D SUPLA_BL0930",
+                },
                 "SUPLA_LED": {
                     "name": "LED",
                     "defOn": True,
@@ -74,8 +79,13 @@ class BuilderCatalogTest(unittest.TestCase):
 
         self.assertEqual(catalog.option_index["SUPLA_CSE7759"]["section"], "energy")
         self.assertEqual(catalog.option_index["SUPLA_CSE7759B"]["section"], "energy")
+        self.assertEqual(catalog.option_index["SUPLA_CSE7759B_FG"]["section"], "energy")
         self.assertEqual(catalog.extra_flags_for_option("SUPLA_CSE7759"), ["-D SUPLA_HLW8012"])
-        self.assertEqual(catalog.extra_flags_for_option("SUPLA_CSE7759B"), ["-D SUPLA_CSE7766"])
+        self.assertEqual(catalog.extra_flags_for_option("SUPLA_CSE7759B"), [])
+        self.assertEqual(catalog.extra_flags_for_option("SUPLA_CSE7759B_FG"), [])
+        self.assertIn("SUPLA_CSE7766", catalog.option_index["SUPLA_CSE7759B"]["depRel"])
+        self.assertIn("SUPLA_CSE7759B_FG", catalog.option_index["SUPLA_CSE7759B"]["depRel"])
+        self.assertIn("SUPLA_CSE7759B", catalog.option_index["SUPLA_CSE7759B_FG"]["depRel"])
 
     def test_local_pow_templates_are_available_with_sel_name(self) -> None:
         self.write_fixture(

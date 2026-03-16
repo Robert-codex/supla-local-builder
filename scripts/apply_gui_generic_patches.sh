@@ -37,6 +37,14 @@ PY
       grep -q '#ifdef SUPLA_CSE7759' "${SUBMODULE_DIR}/src/src/language/common.h" &&
       grep -q 'String(S_HLW8012) + " Multipliers"' "${SUBMODULE_DIR}/src/SuplaWebPageOther.cpp"
       ;;
+    0004-cse7759b-dedicated-driver.patch)
+      grep -q 'new HardwareSerial(CSE7766_UART_PORT)' "${SUBMODULE_DIR}/lib/CSE7766/CSE7766.cpp" &&
+      grep -q 'class CSE7759B' "${SUBMODULE_DIR}/lib/CSE7759B/CSE7759B.h" &&
+      grep -q 'class CSE_7759B' "${SUBMODULE_DIR}/lib/SuplaDeviceExtensions/src/supla/sensor/CSE_7759B.h" &&
+      grep -q 'void addCSE7759B' "${SUBMODULE_DIR}/src/SuplaDeviceGUI.h" &&
+      grep -q 'class CSE_7759B_FG' "${SUBMODULE_DIR}/src/src/sensor/CSE_7759B_FG.h" &&
+      grep -q 'KEY_NETWORK_IP_MODE' "${SUBMODULE_DIR}/src/SuplaConfigManager.h"
+      ;;
     *)
       return 1
       ;;

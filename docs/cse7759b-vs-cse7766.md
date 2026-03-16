@@ -5,7 +5,8 @@ Ten projekt rozdziela `CSE7759B` i `CSE7766` jako dwa odrebne uklady oraz dwa od
 ## Najwazniejsze zasady
 
 - `CSE7766` ma osobna sciezke implementacyjna (`SUPLA_CSE7766`) i osobny parser danych.
-- `CSE7759B` ma osobna sciezke implementacyjna (`SUPLA_CSE7759B`) i nie wspoldzieli runtime-path z `CSE7766`.
+- `CSE7759B-S` (UART) ma osobna sciezke implementacyjna (`SUPLA_CSE7759B`) i nie wspoldzieli runtime-path z `CSE7766`.
+- `CSE7759B` (FG) ma osobna sciezke implementacyjna (`SUPLA_CSE7759B_FG`) jako driver impulsowy.
 - Preset `Sonoff POWR316` pozostaje czystym presetem sprzetowym; uklad pomiarowy wybierasz recznie podczas builda.
 - Usuniete zostaly twarde warianty presetow `POWR316 + CSE7766` oraz `POWR316 + CSE7759B-S`.
 
@@ -13,7 +14,7 @@ Ten projekt rozdziela `CSE7759B` i `CSE7766` jako dwa odrebne uklady oraz dwa od
 
 | Obszar | CSE7766 | CSE7759B | Ryzyko bledu |
 | --- | --- | --- | --- |
-| Sciezka firmware | `SUPLA_CSE7766` | `SUPLA_CSE7759B` | Bledny driver i zle odczyty |
+| Sciezka firmware | `SUPLA_CSE7766` | `SUPLA_CSE7759B` (UART) lub `SUPLA_CSE7759B_FG` (FG) | Bledny driver i zle odczyty |
 | Mapowanie pinow | wg rewizji plytki dla CSE7766 | wg rewizji plytki dla CSE7759B | Brak danych lub niestabilne pomiary |
 | Kalibracja | osobne mnozniki/parametry | osobne mnozniki/parametry | Przesuniete wyniki V/A/W/Wh |
 | Preset buildera | `Sonoff POWR316` + reczny wybor metera | `Sonoff POWR316` + reczny wybor metera | Budowanie z niepoprawnym ukladem |
