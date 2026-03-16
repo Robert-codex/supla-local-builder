@@ -193,18 +193,21 @@ Dostępne warianty w sekcji presetów sprzętowych:
 - `Sonoff Pow R2 + CSE7759 (verified PCB 1739DIE)`
 - `Sonoff POW / POWR1 + CSE7759`
 - `Sonoff POWR316`
-- `Sonoff POWR316 + CSE7766`
-- `Sonoff POWR316 + CSE7759B-S`
 
 Zasady działania:
 
-- `CSE7759B-S` jest wystawiony jako osobna opcja buildowa `SUPLA_CSE7759B`, ale firmware używa obecnie tej samej ścieżki UART co `CSE7766`.
+- `CSE7759B-S` jest wystawiony jako osobna opcja buildowa `SUPLA_CSE7759B` i używa dedykowanego drivera UART.
+- `Sonoff POWR316` pozostaje jako czysty preset sprzętowy; układ pomiarowy (`CSE7766` albo `CSE7759B-S`) wybierasz ręcznie podczas generowania firmware.
 - `CSE7759` jest wystawiony jako alias `SUPLA_CSE7759`, który mapuje się na istniejący driver `HLW8012` z pinami `CF/CF1/SEL`; kompilacja dostaje `SUPLA_CSE7759` (wybrana opcja) oraz `SUPLA_HLW8012` (alias do istniejącego drivera), więc UI pokazuje nazwę `CSE7759`.
 - `Sonoff POW / POWR1 + CSE7759` jest traktowany jako stabilny preset dla starego wariantu impulsowego z mapą `SEL=GPIO5`, `CF1=GPIO13`, `CF=GPIO14`.
 - `Sonoff Pow R2 /SEL + CSE7759 (manual)` generuje własny template z ręcznie wpisanymi pinami `CF/CF1/SEL` i zostaje jako wariant ogólny dla innych rewizji PCB.
 - `Sonoff Pow R2 + CSE7759 (verified PCB 1739DIE)` używa zweryfikowanej mapy `SEL=GPIO5`, `CF1=GPIO13`, `CF=GPIO14`; w tym wariancie `CF1` współdzieli `GPIO13` z obwodem stockowego LED.
 
 Po flashu kalibracja napięcia i energii dla tych wariantów jest dostępna w GUI urządzenia w `Ustawienia urządzenia -> Inne -> Calibration`.
+
+Dodatkowe informacje o rozdzieleniu ścieżek `CSE7759B` i `CSE7766` oraz checklista integracyjna:
+
+- [docs/cse7759b-vs-cse7766.md](/home/langnet/Projekty/Supla/docs/cse7759b-vs-cse7766.md)
 
 ## Debian Installation
 
